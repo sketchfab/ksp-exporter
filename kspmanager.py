@@ -45,6 +45,7 @@ class SkfbUploader(object):
     def upload(archive, **options):
         if not options:
             options = vars(SkfbUploader.parse_options())
+
         params = {
             'token': options.get('token').decode('utf8'),
             'title': options.get('title', 'Craft').decode('utf8'),
@@ -52,7 +53,6 @@ class SkfbUploader(object):
             'tags': options.get('tags', 'KSP').decode('utf8'),
             'source': 'ksp-exporter'
         }
-
         return SkfbUploader.post(SKETCHFAB_API_URL, archive, **params)
 
     @staticmethod
@@ -66,10 +66,10 @@ class SkfbUploader(object):
             return part
 
         multiPart = QtNetwork.QHttpMultiPart(QtNetwork.QHttpMultiPart.FormDataType)
-        multiPart.append(part_parameter("title", options.get('title').decode('utf8')))
-        multiPart.append(part_parameter("description", options.get('description').decode('utf8')))
-        multiPart.append(part_parameter("tags", options.get('tags').decode('utf8')))
-        multiPart.append(part_parameter("token", options.get('token').decode('utf8')))
+        multiPart.append(part_parameter("title", options.get('title', '').decode('utf8')))
+        multiPart.append(part_parameter("description", options.get('description', '').decode('utf8')))
+        multiPart.append(part_parameter("tags", options.get('tags', '').decode('utf8')))
+        multiPart.append(part_parameter("token", options.get('token', '').decode('utf8')))
         multiPart.append(part_parameter("source", "ksp-exporter"))
 
         modelPart = QtNetwork.QHttpPart()
@@ -89,8 +89,10 @@ class SkfbUploader(object):
 
         return (manager, reply)
 
+
 class KSPPathException(Exception):
     pass
+
 
 class KSP2Skfb(object):
     def __init__(self, game_dir=None):
@@ -137,7 +139,11 @@ class KSP2Skfb(object):
 
     def upload(self, craft_name, **options):
         archive = self.make_craft_archive(craft_name)
-        return SkfbUploader.qt_upload(archive, **options)
+        if options.get('use_requests', False):
+            options.pop('use_requests', None)
+            return SkfbUploader.upload(archive, **options)
+        else:
+            return SkfbUploader.qt_upload(archive, **options)
 
     def make_craft_archive(self, craft_name):
         self.list_parts()
@@ -190,7 +196,7 @@ class KSP2Skfb(object):
 def parse_options(args=None):
     parser = argparse.ArgumentParser(description="List and select craft to upload to Sketchfab")
     parser.add_argument("-g", "--game-dir", dest="game_dir",
-                        help="The main KSP directory (<C:\Kerbal Space Program> by default)", nargs='?', default=KSP2Skfb().game_dir)
+                        help="The main KSP directory (<C:\Kerbal Space Program> by default)", nargs='?')
     parser.add_argument("-u", "--upload", dest="upload", nargs='?',
                         help="Craft to upload", default=None)
     parser.add_argument("-l", "--list", dest="list",
@@ -205,7 +211,7 @@ def main():
     if options.list:
         manager.list()
     elif options.upload:
-        print(manager.upload(options.upload))
+        print(manager.upload(options.upload, use_requests=True))
     else:
         # print usage
         parse_options([])
