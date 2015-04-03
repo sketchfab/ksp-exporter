@@ -5,7 +5,9 @@ import json
 import tempfile
 import requests
 from cfgnode import ConfigNode
+from mureader import Mu
 
+import mureader
 
 SKETCHFAB_DOMAIN = 'sketchfab.com'
 SKETCHFAB_API_URL = 'https://api.{}/v2/models'.format(SKETCHFAB_DOMAIN)
@@ -117,13 +119,53 @@ class KSP2Skfb(object):
                 if os.path.splitext(filename)[-1] == '.cfg':
                     self.get_part_name_from_cfg(os.path.join(root, filename))
 
+    #TODO check if declaring the dict in the if name is always ok with the if mesh
     def get_part_name_from_cfg(self, cfg_filepath):
         with open(cfg_filepath, 'r') as cfg_file:
+            part_assets = []
+            part_name = None
+            cfg_dir = None
+            # Add the cfg path to the part assets
+            part_assets.append(cfg_filepath)
             for line in cfg_file:
                 token = line.split('=')[0].strip()
                 if token == 'name':
-                    partname = line.split('=')[1].strip()
-                    self.parts[partname] = os.path.dirname(cfg_filepath)
+                    part_name = line.split('=')[1].strip()
+                    cfg_dir = os.path.dirname(cfg_filepath)
+                if token =='mesh' or token =='model':
+                    if token == 'mesh':
+                        mesh_path = line.rsplit('=')[1].strip()
+                        # Need to clean the path given by the cfg file.
+                        mesh_file = os.path.split(mesh_path)[1]
+                        mesh_path = os.path.join(cfg_dir, mesh_path)
+                    else:
+                        # Token 'mesh'
+                        # filename in value is given without .mu extention, so add it
+                        mesh_path = os.path.split(line.rsplit('=')[1].strip())[-1] + '.mu'
+                        # filename is given with an internal game path, unuseful for us
+                        mesh_file = os.path.split(mesh_path)[1]
+                        mesh_path = os.path.join(cfg_dir, mesh_path)
+
+                    if not os.path.exists(mesh_path):
+                        for root, _, files in os.walk(cfg_dir):
+                            for f in files:
+                                 if os.path.splitext(f)[-1] =='.mu':
+                                    print("A substitution mu file '{}' was found. The result may not be expected".format(f))
+                                    mesh_path = os.path.join(cfg_dir, f)
+
+                    if not os.path.exists(mesh_path):
+                        print ('Warning: The MU file is missing. Skipping the part')
+                        return
+                    # Add the mesh to the part assets
+                    part_assets.append(mesh_path)
+                    #Get texture from mesh
+                    mu = Mu()
+                    mu_data = mu.read(mesh_path)
+                    part_assets.extend(map(lambda x: os.path.join(cfg_dir, x),
+                                            map(lambda y: y.name, mu_data.textures)))
+                if part_name:
+                    self.parts[part_name] = part_assets
+
 
     def list(self):
         print('\n'.join(map(lambda name: '{}. {}'.format(name[0], name[1]),
@@ -148,9 +190,9 @@ class KSP2Skfb(object):
     def make_craft_archive(self, craft_name):
         self.list_parts()
         craft_path = self.get_craft_path(craft_name)
-        craft_folders = self.list_craft_parts_folder(craft_path)
+        craft_assets = self.list_craft_assets(craft_path)
         craft_name = os.path.splitext(os.path.basename(craft_path))[0]
-        return self.build_zip(craft_name, craft_path, craft_folders)
+        return self.build_zip(craft_name, craft_path, craft_assets)
 
     def get_craft_path(self, name):
         try:
@@ -158,9 +200,9 @@ class KSP2Skfb(object):
         except TypeError:
             print('Not supported')
 
-    def list_craft_parts_folder(self, filepath):
+    def list_craft_assets(self, filepath):
         ''' Reads the craft file and return all cfg folders '''
-        folders = set()
+        craft_assets = set()
         with open(filepath, 'r') as craft_file:
             craft_data = craft_file.read()
             craftnodes = ConfigNode.load(craft_data)
@@ -170,26 +212,21 @@ class KSP2Skfb(object):
                 if label == 'part':
                     partname = value.rsplit('_', 1)[0].replace('.', '_')
                     try:
-                        folders.add(self.parts[partname])
+                        craft_assets.update(self.parts[partname])
                     except KeyError:
                         print("Warning: part '{}' not found".format(partname))
-        return folders
 
-    def build_zip(self, craft_name, craft_file, folders):
-        def list_folder_files(folder):
-            filenames = []
-            path = os.path.abspath(folder)
-            for root, _, files in os.walk(path, topdown=True):
-                filenames.extend(map(lambda x: os.path.join(root, x), files))
-            return filenames
+        return craft_assets
 
+
+    def build_zip(self, craft_name, craft_file, craft_assets):
         output = tempfile.gettempdir()
         archive = os.path.join(output, craft_name + '.zip')
         zip = zipfile.ZipFile(archive, 'w')
         zip.write(craft_file, os.path.basename(craft_file))
-        map(zip.write, set(reduce(lambda x, y: x + y,
-                map(list_folder_files, folders))))
+        map(zip.write, craft_assets)
         zip.close()
+
         return archive
 
 
