@@ -9,7 +9,6 @@ def get_mu_textures(mu_path):
                 or self.version > MuEnum.FILE_VERSION):
                 return None
             self.name = self.read_string()
-            #print("version: %d '%s'" % (self.version, self.name))
             self.obj = MuObject().read(self)
             #self.read_materials()
             #self.read_textures()

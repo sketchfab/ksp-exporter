@@ -60,6 +60,9 @@ class Window(QtGui.QWidget):
         self.tags_tb = QtGui.QLineEdit()
         tags_info_label = QtGui.QLabel('<KSP> tag is automatically added')
 
+        self.convert_lb = QtGui.QCheckBox("convert MBM into PNG (.zip ~80% lighter)", self)
+        self.convert_lb.stateChanged.connect(self.set_convert_mbm)
+        self.convert_lb.setChecked(True)
         self.upload_btn = QtGui.QPushButton("Upload", self)
         self.upload_btn.clicked.connect(self.start_upload)
         self.status_info_label = QtGui.QLabel('')
@@ -89,6 +92,7 @@ class Window(QtGui.QWidget):
         main_layout.addWidget(self.status_info_label)
         self.update_game_gui(self.game_dir)
         self.craft_list_ql.currentRowChanged.connect(self.updateList)
+        main_layout.addWidget(self.convert_lb)
         main_layout.addWidget(self.upload_btn)
         main_layout.addWidget(self.close_btn)
         self.setLayout(main_layout)
@@ -97,6 +101,9 @@ class Window(QtGui.QWidget):
         self.upload_btn.setEnabled(True)
         self.upload_btn.setText('Upload {}'.format(self.craft_list[index].split('.')[1].strip()))
         self.status_info_label.setText('')
+
+    def set_convert_mbm(self):
+        self.manager.set_convert_mbm(self.convert_lb.isChecked())
 
     def update_window_data(self):
         if os.path.exists(self.game_dir):

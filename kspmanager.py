@@ -6,6 +6,7 @@ import tempfile
 import requests
 from cfgnode import ConfigNode
 from mureader import Mu
+from texture_converter import Converter
 
 SKETCHFAB_DOMAIN = 'sketchfab.com'
 SKETCHFAB_API_URL = 'https://api.{}/v2/models'.format(SKETCHFAB_DOMAIN)
@@ -160,8 +161,8 @@ class KSP2Skfb(object):
                     # Get texture from mesh
                     mu = Mu()
                     mu_data = mu.read(mesh_path)
-                    part_assets.extend(map(lambda x: os.path.join(cfg_dir, x),
-                                       map(lambda y: y.name, mu_data.textures)))
+                    if mu_data.textures:
+                        part_assets.extend(map(lambda y: os.path.join(cfg_dir, y.name), mu_data.textures))
                 if part_name:
                     self.parts[part_name] = part_assets
 
@@ -198,6 +199,29 @@ class KSP2Skfb(object):
         except TypeError:
             print('Not supported')
 
+    def get_with_converted_textures(self, asset_files):
+        c = Converter()
+        files = set()
+        for f in asset_files:
+            if os.path.splitext(f)[-1] == '.mbm':
+                f_convert = c.load_mbm(f)
+                f = os.path.splitext(f)[0] + '.png'
+                # Contains ({temp_path}, {original_mbm_path_with_png_extension})
+                # Allows to get the data from the temp repertory but store it using the game paths
+                f = (f_convert, f)
+            files.add(f)
+        return list(files)
+
+    def get_craft_unique_assets(self, craftnodes):
+        ''' Get a set of craft assets '''
+        assets_set = set()
+        for node in craftnodes.nodes:
+                label, value = node[1].values[0]
+                if label == 'part':
+                    partname = value.rsplit('_', 1)[0].replace('.', '_')
+                    assets_set.add(partname)
+        return assets_set
+
     def list_craft_assets(self, filepath):
         ''' Reads the craft file and return all cfg folders '''
         craft_assets = set()
@@ -205,15 +229,13 @@ class KSP2Skfb(object):
             craft_data = craft_file.read()
             craftnodes = ConfigNode.load(craft_data)
             # FIXME: is part always the first value?
-            for node in craftnodes.nodes:
-                label, value = node[1].values[0]
-                if label == 'part':
-                    partname = value.rsplit('_', 1)[0].replace('.', '_')
-                    try:
-                        craft_assets.update(self.parts[partname])
-                    except KeyError:
-                        print("Warning: part '{}' not found".format(partname))
-
+            assets_set = self.get_craft_unique_assets(craftnodes)
+            for asset in assets_set:
+                if asset not in self.parts:
+                    print("Warning: part '{}' not found".format(partname))
+                else:
+                    print('Converting textures for {}'.format(asset))
+                    craft_assets.update(self.get_with_converted_textures(self.parts[asset]))
         return craft_assets
 
     def build_zip(self, craft_name, craft_file, craft_assets):
@@ -221,7 +243,14 @@ class KSP2Skfb(object):
         archive = os.path.join(output, craft_name + '.zip')
         zip = zipfile.ZipFile(archive, 'w')
         zip.write(craft_file, os.path.basename(craft_file))
-        map(zip.write, craft_assets)
+        # When textures are converted, PNGs are put in the archive from the temp path but
+        # with the MBM (game) path to keep their relative path with the model, inside the archive
+        print('Building the .zip')
+        for f in craft_assets:
+            if isinstance(f, tuple):
+                zip.write(f[0], f[1])
+            else:
+                zip.write(f)
         zip.close()
 
         return archive
