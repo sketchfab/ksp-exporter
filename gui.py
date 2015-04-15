@@ -1,7 +1,8 @@
 from PyQt4 import QtGui, QtCore
-from kspmanager import KSP2Skfb, KSPPathException, SKETCHFAB_MODEL_URL
+from kspmanager import KSP2Skfb, SKETCHFAB_MODEL_URL
 import os
 import json
+
 
 class Window(QtGui.QWidget):
     def __init__(self, parent=None):
@@ -35,7 +36,6 @@ class Window(QtGui.QWidget):
         else:
             self.game_path_info_label.setText('Warning : game directory not found')
 
-
         self.game_dir_btn = QtGui.QPushButton("Browse game directory", self)
         self.game_dir_btn.clicked.connect(self.search_game_directory)
         main_layout.addWidget(self.game_dir_btn)
@@ -43,7 +43,8 @@ class Window(QtGui.QWidget):
         game_path_tb.setText(self.game_dir)
         api_token_label = QtGui.QLabel('API token*:')
         self.api_token_tb = QtGui.QLineEdit()
-        api_token_info_label = QtGui.QLabel("(You can find your API token <a href=\"https://sketchfab.com/settings/password\">here</a> when logged)")
+        api_token_info_label = QtGui.QLabel("(You can find your API token \
+            <a href=\"https://sketchfab.com/settings/password\">here</a> when logged)")
         api_token_info_label.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
         api_token_info_label.setOpenExternalLinks(True)
 
@@ -66,7 +67,6 @@ class Window(QtGui.QWidget):
         self.close_btn = QtGui.QPushButton("Close", self)
         self.close_btn.clicked.connect(self.close)
 
-        about_label = QtGui.QLabel()
         main_layout.addWidget(api_token_label)
         main_layout.addWidget(self.api_token_tb)
         main_layout.addWidget(api_token_info_label)
@@ -92,7 +92,6 @@ class Window(QtGui.QWidget):
         main_layout.addWidget(self.upload_btn)
         main_layout.addWidget(self.close_btn)
         self.setLayout(main_layout)
-
 
     def updateList(self, index):
         self.upload_btn.setEnabled(True)
@@ -128,11 +127,11 @@ class Window(QtGui.QWidget):
         progress.show()
 
         self.uploader, self.reply = self.manager.upload(
-                    self.craft_list_ql.currentRow(),
-                    title=to_utf8(self.title_tb.text()),
-                    description=to_utf8(self.description_tb.toPlainText()),
-                    tags=to_utf8(self.tags_tb.text()),
-                    token=to_utf8(self.api_token_tb.text()))
+            self.craft_list_ql.currentRow(),
+            title=to_utf8(self.title_tb.text()),
+            description=to_utf8(self.description_tb.toPlainText()),
+            tags=to_utf8(self.tags_tb.text()),
+            token=to_utf8(self.api_token_tb.text()))
 
         def upload_finished():
             if not progress.wasCanceled():
@@ -140,7 +139,6 @@ class Window(QtGui.QWidget):
                 print(http_response)
                 data = json.loads(str(http_response))
                 if 'uid' in data:
-                    uid = data["uid"]
                     url = SKETCHFAB_MODEL_URL + '/' + data['uid']
                     self.update_status(url)
                     QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
@@ -185,7 +183,6 @@ class Window(QtGui.QWidget):
         dialog.setOption(QtGui.QFileDialog.ShowDirsOnly)
         self.update_game_gui(dialog.getExistingDirectory())
 
-
     def update_game_gui(self, game_dir):
         if os.path.exists(game_dir):
             self.game_dir = game_dir
@@ -205,5 +202,3 @@ class Window(QtGui.QWidget):
         else:
             self.craft_list_ql.setEnabled(False)
             self.upload_btn.setEnabled(False)
-
-

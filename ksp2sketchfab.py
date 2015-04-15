@@ -1,12 +1,7 @@
-import os
 import sys
 
+
 def main():
-
-    # Params
-    import ipdb
-
-    gui_enabled = True
 
     from PyQt4 import QtGui
     import gui
@@ -18,8 +13,6 @@ def main():
         w.setFixedSize(400, 800)
     except:
         print("Failed to initialize QtGui interface")
-
-        gui_enabled = False
 
     sys.exit(app.exec_())
 

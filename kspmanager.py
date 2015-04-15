@@ -7,11 +7,10 @@ import requests
 from cfgnode import ConfigNode
 from mureader import Mu
 
-import mureader
-
 SKETCHFAB_DOMAIN = 'sketchfab.com'
 SKETCHFAB_API_URL = 'https://api.{}/v2/models'.format(SKETCHFAB_DOMAIN)
 SKETCHFAB_MODEL_URL = 'https://{}/models'.format(SKETCHFAB_DOMAIN)
+
 
 class SkfbUploader(object):
     @staticmethod
@@ -76,7 +75,8 @@ class SkfbUploader(object):
 
         modelPart = QtNetwork.QHttpPart()
         modelPart.setHeader(QtNetwork.QNetworkRequest.ContentTypeHeader, "application/octet-stream")
-        modelPart.setHeader(QtNetwork.QNetworkRequest.ContentDispositionHeader, "form-data; name=\"modelFile\"; filename=\"%s\"" % (archive))
+        modelPart.setHeader(QtNetwork.QNetworkRequest.ContentDispositionHeader,
+                            "form-data; name=\"modelFile\"; filename=\"%s\"" % (archive))
         data = QtCore.QFile(archive)
         data.open(QtCore.QIODevice.ReadOnly)
         modelPart.setBodyDevice(data)
@@ -119,7 +119,7 @@ class KSP2Skfb(object):
                 if os.path.splitext(filename)[-1] == '.cfg':
                     self.get_part_name_from_cfg(os.path.join(root, filename))
 
-    #TODO check if declaring the dict in the if name is always ok with the if mesh
+    # TODO check if declaring the dict in the if name is always ok with the if mesh
     def get_part_name_from_cfg(self, cfg_filepath):
         with open(cfg_filepath, 'r') as cfg_file:
             part_assets = []
@@ -132,25 +132,24 @@ class KSP2Skfb(object):
                 if token == 'name':
                     part_name = line.split('=')[1].strip()
                     cfg_dir = os.path.dirname(cfg_filepath)
-                if token =='mesh' or token =='model':
+                if token == 'mesh' or token == 'model':
                     if token == 'mesh':
                         mesh_path = line.rsplit('=')[1].strip()
                         # Need to clean the path given by the cfg file.
-                        mesh_file = os.path.split(mesh_path)[1]
                         mesh_path = os.path.join(cfg_dir, mesh_path)
                     else:
                         # Token 'mesh'
                         # filename in value is given without .mu extention, so add it
                         mesh_path = os.path.split(line.rsplit('=')[1].strip())[-1] + '.mu'
                         # filename is given with an internal game path, unuseful for us
-                        mesh_file = os.path.split(mesh_path)[1]
                         mesh_path = os.path.join(cfg_dir, mesh_path)
 
                     if not os.path.exists(mesh_path):
                         for root, _, files in os.walk(cfg_dir):
                             for f in files:
-                                 if os.path.splitext(f)[-1] =='.mu':
-                                    print("A substitution mu file '{}' was found. The result may not be expected".format(f))
+                                if os.path.splitext(f)[-1] == '.mu':
+                                    print("A substitution mu file '{}' was found. \
+                                           The result may not be expected".format(f))
                                     mesh_path = os.path.join(cfg_dir, f)
 
                     if not os.path.exists(mesh_path):
@@ -158,26 +157,25 @@ class KSP2Skfb(object):
                         return
                     # Add the mesh to the part assets
                     part_assets.append(mesh_path)
-                    #Get texture from mesh
+                    # Get texture from mesh
                     mu = Mu()
                     mu_data = mu.read(mesh_path)
                     part_assets.extend(map(lambda x: os.path.join(cfg_dir, x),
-                                            map(lambda y: y.name, mu_data.textures)))
+                                       map(lambda y: y.name, mu_data.textures)))
                 if part_name:
                     self.parts[part_name] = part_assets
-
 
     def list(self):
         print('\n'.join(map(lambda name: '{}. {}'.format(name[0], name[1]),
                             enumerate(map(os.path.basename,
-                                map(lambda x: os.path.splitext(x)[0],
-                                    self.craft_files))))))
+                                      map(lambda x: os.path.splitext(x)[0],
+                                          self.craft_files))))))
 
     def get_craft_list(self):
         return map(lambda name: '{}. {}'.format(name[0], name[1]),
-                            enumerate(map(os.path.basename,
-                                map(lambda x: os.path.splitext(x)[0],
-                                    self.craft_files))))
+                   enumerate(map(os.path.basename,
+                             map(lambda x: os.path.splitext(x)[0],
+                                 self.craft_files))))
 
     def upload(self, craft_name, **options):
         archive = self.make_craft_archive(craft_name)
@@ -217,7 +215,6 @@ class KSP2Skfb(object):
                         print("Warning: part '{}' not found".format(partname))
 
         return craft_assets
-
 
     def build_zip(self, craft_name, craft_file, craft_assets):
         output = tempfile.gettempdir()
