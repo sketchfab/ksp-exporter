@@ -103,6 +103,7 @@ class KSP2Skfb(object):
         self.craft_parts = set()
         self.parts = dict()
         self.game_dir = game_dir or 'C:\\Kerbal Space Program'
+        self.temp_files = set()
         if not os.path.exists(self.game_dir) or not os.path.isdir(self.game_dir):
             raise KSPPathException("Error: directory '{}' not found. Aborting.".format(self.game_dir))
 
@@ -205,6 +206,7 @@ class KSP2Skfb(object):
         for f in asset_files:
             if os.path.splitext(f)[-1] == '.mbm':
                 f_convert = c.load_mbm(f)
+                self.temp_files.add(os.path.split(f_convert)[0])
                 f = os.path.splitext(f)[0] + '.png'
                 # Contains ({temp_path}, {original_mbm_path_with_png_extension})
                 # Allows to get the data from the temp repertory but store it using the game paths
@@ -241,6 +243,7 @@ class KSP2Skfb(object):
     def build_zip(self, craft_name, craft_file, craft_assets):
         output = tempfile.gettempdir()
         archive = os.path.join(output, craft_name + '.zip')
+        self.temp_files.add(archive)
         zip = zipfile.ZipFile(archive, 'w')
         zip.write(craft_file, os.path.basename(craft_file))
         # When textures are converted, PNGs are put in the archive from the temp path but
@@ -254,6 +257,20 @@ class KSP2Skfb(object):
         zip.close()
 
         return archive
+
+
+    def clear_tmp_files(self):
+        ''' Clear temp files '''
+        print('Cleaning temp files...')
+        for d in self.temp_files:
+            if tempfile.gettempdir() in d:
+                if os.path.isdir(d):
+                    for f in os.listdir(d):
+                        os.remove(os.path.join(d,f))
+                    os.rmdir(d)
+                else:
+                    os.remove(d)
+        print('Temp files cleaned')
 
 
 def parse_options(args=None):
@@ -275,6 +292,7 @@ def main():
         manager.list()
     elif options.upload:
         print(manager.upload(options.upload, use_requests=True))
+        manager.clear_tmp_files()
     else:
         # print usage
         parse_options([])
