@@ -16,8 +16,8 @@ class SkfbUploader(object):
     @staticmethod
     def parse_options():
         parser = argparse.ArgumentParser(description='Upload to Sketchfab')
-        parser.add_argument('--title', default='', nargs='?',
-                            help='Model title')
+        parser.add_argument('--name', default='', nargs='?',
+                            help='Model name')
         parser.add_argument('--description', default='', nargs='?',
                             help='Model description')
         parser.add_argument('--tags', default='', nargs='?',
@@ -50,7 +50,7 @@ class SkfbUploader(object):
 
         params = {
             'token': options.get('token').decode('utf8'),
-            'title': options.get('title', 'Craft').decode('utf8'),
+            'name': options.get('name', 'Craft').decode('utf8'),
             'description': options.get('description', '').decode('utf8'),
             'tags': options.get('tags', 'KSP').decode('utf8'),
             'source': 'ksp-exporter'
@@ -68,7 +68,7 @@ class SkfbUploader(object):
             return part
 
         multiPart = QtNetwork.QHttpMultiPart(QtNetwork.QHttpMultiPart.FormDataType)
-        multiPart.append(part_parameter("title", options.get('title', '').decode('utf8')))
+        multiPart.append(part_parameter("name", options.get('name', '').decode('utf8')))
         multiPart.append(part_parameter("description", options.get('description', '').decode('utf8')))
         multiPart.append(part_parameter("tags", options.get('tags', 'KSP').decode('utf8')))
         multiPart.append(part_parameter("token", options.get('token', '').decode('utf8')))
