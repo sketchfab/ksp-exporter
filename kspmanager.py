@@ -3,7 +3,6 @@ import os
 import zipfile
 import json
 import tempfile
-import requests
 from cfgnode import ConfigNode
 from mureader import Mu
 from texture_converter import Converter
@@ -29,6 +28,7 @@ class SkfbUploader(object):
 
     @staticmethod
     def post(url, archive, **params):
+        import requests
         try:
             with open(archive, 'rb') as data:
                 response = requests.post(url,
@@ -70,7 +70,7 @@ class SkfbUploader(object):
         multiPart = QtNetwork.QHttpMultiPart(QtNetwork.QHttpMultiPart.FormDataType)
         multiPart.append(part_parameter("title", options.get('title', '').decode('utf8')))
         multiPart.append(part_parameter("description", options.get('description', '').decode('utf8')))
-        multiPart.append(part_parameter("tags", options.get('tags', '').decode('utf8')))
+        multiPart.append(part_parameter("tags", options.get('tags', 'KSP').decode('utf8')))
         multiPart.append(part_parameter("token", options.get('token', '').decode('utf8')))
         multiPart.append(part_parameter("source", "ksp-exporter"))
 
@@ -93,23 +93,26 @@ class SkfbUploader(object):
         return (manager, reply)
 
 
-class KSPPathException(Exception):
-    pass
-
-
 class KSP2Skfb(object):
-    def __init__(self, game_dir=None):
+    def __init__(self, game_dir=None, uses_qt=False):
         self.craft_files = []
         self.craft_parts = set()
         self.parts = dict()
-        self.game_dir = game_dir or 'C:\\Kerbal Space Program'
         self.temp_files = set()
-        if not os.path.exists(self.game_dir) or not os.path.isdir(self.game_dir):
-            raise KSPPathException("Error: directory '{}' not found. Aborting.".format(self.game_dir))
+        self.uses_qt = uses_qt
+        if self.uses_qt:
+            from PyQt4 import QtCore
+            self.emitter = QtCore.QObject()
+        self.sign = None
+        self.set_game_dir(game_dir or 'C:\\Kerbal Space Program')
 
-        self.list_crafts()
+    def set_game_dir(self, game_dir_path):
+        self.game_dir = game_dir_path
+        if os.path.exists(self.game_dir) and os.path.isdir(self.game_dir):
+            self.list_crafts()
 
     def list_crafts(self):
+        self.craft_files = []
         for root, dirs, files in os.walk(self.game_dir):
             for filename in files:
                 if os.path.splitext(filename)[-1] == '.craft':
@@ -117,6 +120,9 @@ class KSP2Skfb(object):
 
     def list_parts(self):
         for root, dirs, files in os.walk(self.game_dir):
+            if self.uses_qt:
+                from PyQt4 import QtCore
+                self.emitter.emit(QtCore.SIGNAL('building(QString, int, int)'), "Scanning game directory...", -1, -1)
             for filename in files:
                 if os.path.splitext(filename)[-1] == '.cfg':
                     self.get_part_name_from_cfg(os.path.join(root, filename))
@@ -150,8 +156,8 @@ class KSP2Skfb(object):
                         for root, _, files in os.walk(cfg_dir):
                             for f in files:
                                 if os.path.splitext(f)[-1] == '.mu':
-                                    print("A substitution mu file '{}' was found. \
-                                           The result may not be expected".format(f))
+                                    print("A substitution mu file '{}' was found.".format(f))
+                                    print("The result may be unexpected")
                                     mesh_path = os.path.join(cfg_dir, f)
 
                     if not os.path.exists(mesh_path):
@@ -236,6 +242,9 @@ class KSP2Skfb(object):
                 if asset not in self.parts:
                     print("Warning: part '{}' not found".format(partname))
                 else:
+                    if self.uses_qt:
+                        from PyQt4 import QtCore
+                        self.emitter.emit(QtCore.SIGNAL('building(QString, int, int)'), "Building", list(assets_set).index(asset), len(assets_set))
                     print('Converting textures for {}'.format(asset))
                     craft_assets.update(self.get_with_converted_textures(self.parts[asset]))
         return craft_assets
