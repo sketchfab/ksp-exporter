@@ -275,10 +275,19 @@ class KSP2Skfb(object):
             if tempfile.gettempdir() in d:
                 if os.path.isdir(d):
                     for f in os.listdir(d):
-                        os.remove(os.path.join(d,f))
-                    os.rmdir(d)
+                        try:
+                            os.remove(os.path.join(d,f))
+                        except:
+                            pass
+                    try:
+                        os.rmdir(d)
+                    except:
+                        pass
                 else:
-                    os.remove(d)
+                    try:
+                        os.remove(d)
+                    except:
+                        pass
         print('Temp files cleaned')
 
 
