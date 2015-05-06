@@ -47,7 +47,9 @@ class SkfbUploader(object):
     def upload(archive, **options):
         if not options:
             options = vars(SkfbUploader.parse_options())
-
+        if not options.get('token'):
+            print('Error : Please set your Sketchfab API token')
+            return 'Cancelled : missing Sketchfab API token'
         params = {
             'token': options.get('token').decode('utf8'),
             'name': options.get('name', 'Craft').decode('utf8'),
@@ -127,8 +129,28 @@ class KSP2Skfb(object):
                 if os.path.splitext(filename)[-1] == '.cfg':
                     self.get_part_name_from_cfg(os.path.join(root, filename))
 
+    def look_for_mu_file(self, cfg_filepath):
+        ''' Look for a matching mu file '''
+        cfg_dir = os.path.split(cfg_filepath)[0]
+        mesh_path = None
+        # In some cases, the mu has the same name as the associated cfg
+        if os.path.exists(os.path.splitext(cfg_filepath)[0] + '.mu'):
+            mesh_path = os.path.splitext(cfg_filepath)[0] + '.mu'
+        else:
+            for root, _, files in os.walk(cfg_dir):
+                # Get the first mu file
+                for f in files:
+                    if os.path.splitext(f)[-1] == '.mu':
+                        mesh_path = os.path.join(cfg_dir, f)
+                        break
+        if mesh_path:
+            print("A substitution mu file '{}' was found.".format(os.path.basename(mesh_path)))
+
+        return mesh_path
+
     # TODO check if declaring the dict in the if name is always ok with the if mesh
     def get_part_name_from_cfg(self, cfg_filepath):
+        ''' Get part name and model file path '''
         with open(cfg_filepath, 'r') as cfg_file:
             part_assets = []
             part_name = None
@@ -146,31 +168,20 @@ class KSP2Skfb(object):
                         # Need to clean the path given by the cfg file.
                         mesh_path = os.path.join(cfg_dir, mesh_path)
                     else:
-                        # Token 'mesh'
                         # filename in value is given without .mu extention, so add it
                         mesh_path = os.path.split(line.rsplit('=')[1].strip())[-1] + '.mu'
                         # filename is given with an internal game path, unuseful for us
                         mesh_path = os.path.join(cfg_dir, mesh_path)
 
                     if not os.path.exists(mesh_path):
-                        for root, _, files in os.walk(cfg_dir):
-                            for f in files:
-                                if os.path.splitext(f)[-1] == '.mu':
-                                    print("A substitution mu file '{}' was found.".format(f))
-                                    print("The result may be unexpected")
-                                    mesh_path = os.path.join(cfg_dir, f)
+                        mesh_path = self.look_for_mu_file(cfg_filepath)
 
-                    if not os.path.exists(mesh_path):
-                        print ('Warning: The MU file is missing. Skipping the part')
+                    if not mesh_path or not os.path.exists(mesh_path):
+                        print ("Warning: Part '{}' was skipped (model was not found)".format(part_name))
                         return
                     # Add the mesh to the part assets
                     part_assets.append(mesh_path)
-                    # Get texture from mesh
-                    mu = Mu()
-                    mu_data = mu.read(mesh_path)
-                    if mu_data.textures:
-                        part_assets.extend(map(lambda y: os.path.join(cfg_dir, y.name), mu_data.textures))
-                if part_name:
+                if part_name and not part_name in self.parts:
                     self.parts[part_name] = part_assets
 
     def list(self):
@@ -206,28 +217,85 @@ class KSP2Skfb(object):
         except TypeError:
             print('Not supported')
 
-    def get_with_converted_textures(self, asset_files):
+    def convert(self, filepath, normal=False):
+        c = Converter()
+        converted = c.load_image(filepath, normal)
+
+        return converted
+
+    def get_existing_texture_file(self, filepath):
+        exts = ['.dds', '.mbm', '.png', '.tga']
+        base_path = os.path.splitext(filepath)[0]
+        for ext in exts:
+            if os.path.exists(os.path.splitext(filepath)[0] + ext):
+                return os.path.splitext(filepath)[0] + ext
+
+        return None
+
+    def convert_textures(self, mutextures, path, convert_indexes):
+        ''' Get the textures and convert them when needed'''
+        textures = set()
+        for idx in range(len(mutextures)):
+            # Extension can differ bewteen the path in the model file and the real texture file
+            existing_texture = self.get_existing_texture_file(os.path.join(path, mutextures[idx].name))
+            if existing_texture:
+                # DDS and MBM need to be converted into PNG
+                if os.path.splitext(existing_texture)[-1] in ['.dds', '.mbm']:
+                    # Get the converted texture
+                    source_image = self.convert(existing_texture, idx in convert_indexes)
+                    self.temp_files.add(source_image)
+
+                    archive_path = os.path.splitext(existing_texture)[0] + '.png'
+                    # We create a tuple to store both the real(temp) path of the converted texture
+                    # and the path to set in the .zip so that it is in the same directory that the model
+                    if self.uses_qt:
+                        from PyQt4 import QtCore
+                        self.emitter.emit(QtCore.SIGNAL('converting(QString)'), "Converting : {}".format(os.path.basename(archive_path)))
+                    textures.add((source_image, archive_path))
+                else:
+                    textures.add(existing_texture)
+
+        return textures
+
+    def get_mu_textures(self, mu_file):
+        mu = Mu()
+        mu_data = mu.read(mu_file)
+        path = os.path.split(mu_file)[0]
+
+        # Check for textures that need to be converted to normal map
+        normalmaps_index = []
+        for mat in mu_data.materials:
+            try:
+                mat.bumpMap
+                normalmaps_index.append(mat.bumpMap.index)
+            except AttributeError:
+                pass
+        converted_textures = []
+        converted_textures = self.convert_textures(mu_data.textures, path, normalmaps_index)
+        return converted_textures
+
+    def get_asset_files(self, asset_files):
+        ''' Get the assets files (cfg + mu + textures)'''
         c = Converter()
         files = set()
         for f in asset_files:
-            if os.path.splitext(f)[-1] == '.mbm':
-                f_convert = c.load_mbm(f)
-                self.temp_files.add(os.path.split(f_convert)[0])
-                f = os.path.splitext(f)[0] + '.png'
-                # Contains ({temp_path}, {original_mbm_path_with_png_extension})
-                # Allows to get the data from the temp repertory but store it using the game paths
-                f = (f_convert, f)
             files.add(f)
+            if os.path.splitext(f)[-1] == '.mu':
+                # Read the .mu file to get textures
+                # Get the Textures
+                textures = self.get_mu_textures(f)
+                files.update(textures)
+
         return list(files)
 
     def get_craft_unique_assets(self, craftnodes):
         ''' Get a set of craft assets '''
         assets_set = set()
         for node in craftnodes.nodes:
-                label, value = node[1].values[0]
-                if label == 'part':
-                    partname = value.rsplit('_', 1)[0].replace('.', '_')
-                    assets_set.add(partname)
+            label, value = node[1].values[0]
+            if label == 'part':
+                partname = value.rsplit('_', 1)[0].replace('.', '_')
+                assets_set.add(partname)
         return assets_set
 
     def list_craft_assets(self, filepath):
@@ -245,11 +313,12 @@ class KSP2Skfb(object):
                     if self.uses_qt:
                         from PyQt4 import QtCore
                         self.emitter.emit(QtCore.SIGNAL('building(QString, int, int)'), "Building", list(assets_set).index(asset), len(assets_set))
-                    print('Converting textures for {}'.format(asset))
-                    craft_assets.update(self.get_with_converted_textures(self.parts[asset]))
+                    print('Getting files for {}'.format(asset))
+                    craft_assets.update(self.get_asset_files(self.parts[asset]))
         return craft_assets
 
     def build_zip(self, craft_name, craft_file, craft_assets):
+        ''' Build a zip with craft_assets names'''
         output = tempfile.gettempdir()
         archive = os.path.join(output, craft_name + '.zip')
         self.temp_files.add(archive)
@@ -309,8 +378,11 @@ def main():
     if options.list:
         manager.list()
     elif options.upload:
-        print(manager.upload(options.upload, use_requests=True))
-        manager.clear_tmp_files()
+        try:
+            print(manager.upload(options.upload, use_requests=True))
+            manager.clear_tmp_files()
+        except Exception as e:
+            print(e)
     else:
         # print usage
         parse_options([])

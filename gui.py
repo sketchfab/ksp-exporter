@@ -46,7 +46,7 @@ class Window(QtGui.QWidget):
         if 'api' in self.user_data:
             self.api_token_tb.setText(self.user_data['api'])
         else:
-            self.api_token_tb.setPlaceholderText('1234567890ABCDEFGHIJKLMNOPQRSTUV')
+            self.api_token_tb.setPlaceholderText('Set your Sketchfab api Token (required)')
 
         api_token_info_label = QtGui.QLabel("(You can find your API token in your \
             <a href=\"https://sketchfab.com/settings/password\">password settings</a>)")
@@ -104,9 +104,9 @@ class Window(QtGui.QWidget):
         tag_h_layout.addWidget(self.tags_tb)
         self.main_layout.addLayout(tag_h_layout)
 
-        self.main_layout.addWidget(self.status_info_label)
         self.craft_list_ql.currentRowChanged.connect(self.updateList)
         self.main_layout.addWidget(self.upload_btn)
+        self.main_layout.addWidget(self.status_info_label)
         self.setLayout(self.main_layout)
 
         # Build manager and set ui
@@ -114,10 +114,11 @@ class Window(QtGui.QWidget):
         self.update_game_ui(self.game_dir)
         self.enable_skfb_ui(False)
         QtCore.QObject.connect(self.manager.emitter, QtCore.SIGNAL('building(QString, int, int)'), self.update_upload_btn)
+        QtCore.QObject.connect(self.manager.emitter, QtCore.SIGNAL('converting(QString)'), self.update_upload_lb)
 
         # If bad path at launch, pop up the filedialog to locate it
         if not os.path.exists(self.game_dir):
-            QtGui.QMessageBox.warning(self, "Game directory not found", "Please set your game directory")
+            QtGui.QMessageBox.information(self, "Game directory not found", "Please set your game directory")
             self.search_game_directory()
 
     def get_user_data(self):
@@ -132,6 +133,9 @@ class Window(QtGui.QWidget):
     def dump_user_data(self):
         with open('userdata.json', 'w') as f:
             json.dump(self.user_data, f)
+
+    def update_upload_lb(self, text):
+        self.status_info_label.setText(text)
 
     def update_upload_btn(self, text, val, total):
         if total > 0:
@@ -186,18 +190,26 @@ class Window(QtGui.QWidget):
             self.status_info_label.setText('Error : {}'.format(self.upload_status))
 
     def start_upload(self):
+        if not len(self.api_token_tb.text()) == 32:
+            QtGui.QMessageBox.information(self, "Missing informations", 'Please set or check your Sketchfab API token')
+            return
         self.upload_status = 'Building ...'
         self.set_upload_btn_state('building')
         self.enable_skfb_ui(False)
         self.repaint()
-
-        to_utf8 = lambda qstring: unicode(qstring.toUtf8(), encoding='utf8').encode('utf8')
-        self.uploader, self.reply = self.manager.upload(
-            self.craft_list_ql.currentRow(),
-            name=to_utf8(self.name_tb.text()),
-            description=to_utf8(self.description_tb.toPlainText()),
-            tags='KSP ' + to_utf8(self.tags_tb.text()),
-            token=to_utf8(self.api_token_tb.text()))
+        try:
+            to_utf8 = lambda qstring: unicode(qstring.toUtf8(), encoding='utf8').encode('utf8')
+            self.uploader, self.reply = self.manager.upload(
+                self.craft_list_ql.currentRow(),
+                name=to_utf8(self.name_tb.text()),
+                description=to_utf8(self.description_tb.toPlainText()),
+                tags='KSP ' + to_utf8(self.tags_tb.text()),
+                token=to_utf8(self.api_token_tb.text()))
+        except Exception as e:
+            # QtGui.QMessageBox.critical(self, "Error", '{}'.format(e))
+            QtGui.QMessageBox.critical(self, "Unhandled error", '{}: {}'.format(type(e).__name__, e))
+            self.set_upload_btn_state('publish')
+            return
 
         progress = QtGui.QProgressDialog("Uploading...", "Cancel", 0, 100, self)
         self.set_upload_btn_state('upload')
@@ -210,6 +222,7 @@ class Window(QtGui.QWidget):
             if not progress.wasCanceled():
                 http_response = self.reply.readAll()
                 print(http_response)
+                self.status_info_label.setText('Finished')
                 data = json.loads(str(http_response))
                 if 'uid' in data:
                     url = SKETCHFAB_MODEL_URL + '/' + data['uid']
@@ -217,12 +230,14 @@ class Window(QtGui.QWidget):
                     QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
 
                     # Save the sketchfab api token in user_data
-                    self.user_data['api'] = self.api_token_tb.text()
+                    to_utf8 = lambda qstring: unicode(qstring.toUtf8(), encoding='utf8').encode('utf8')
+                    self.user_data['api'] = to_utf8(self.api_token_tb.text())
                     self.dump_user_data()
                 else:
                     self.update_status(data['detail'])
 
                 progress.close()
+            self.status_info_label.setText('Finished')
             self.set_upload_btn_state('publish')
 
         def upload_error():

@@ -1,9 +1,11 @@
 # -*- coding: utf8 -*-
+import os
+import tempfile
+import pyglet
 from struct import unpack
 from math import sqrt
 from PIL import Image, ImageFilter, ImageChops
-import os
-import tempfile
+from pyglet.image.codecs.dds import DDSImageDecoder
 
 
 class Converter(object):
@@ -54,6 +56,7 @@ class Converter(object):
         return input_image
 
     def load_mbm(self, mbmpath):
+        print(mbmpath)
         mbmfile = open(mbmpath, "rb")
         header = mbmfile.read(20)
         magic, width, height, bump, bpp = unpack("<5i", header)
@@ -63,17 +66,38 @@ class Converter(object):
 
         # Needs to flip top/bottom in order to get the right image
         img = img.transpose(1)
+        if bump:
+            img = self.readHeight2Bump(img)
+            print(mbmpath)
 
+        return img
+
+    def load_dds(self, ddspath, convert_tonormal):
+        da = pyglet.image.load(ddspath, decoder=DDSImageDecoder()).get_texture().get_image_data()
+        img_format = 'RGBA' if len(da.format) == 4 else 'RGB'
+
+        imagedata=da.get_data(img_format, len(da.format) * da.width)
+        img = Image.fromstring(img_format, (da.width, da.height), imagedata)
+        img = img.transpose(1)
+        if convert_tonormal:
+            img = self.readHeight2Bump(img)
+
+        return img
+
+
+    def load_image(self, filepath, convert_tonormal=False):
+        ''' Converts image to png'''
+        if os.path.splitext(filepath)[-1] == '.mbm':
+            img = self.load_mbm(filepath)
+        else:
+            img = self.load_dds(filepath, convert_tonormal)
+
+        filename = os.path.splitext(os.path.basename(filepath))[0] + '.png'
         output = tempfile.gettempdir()
-        subfolder = os.path.split(os.path.split(os.path.splitdrive(mbmpath)[1])[0])[1]
+        subfolder = os.path.split(os.path.split(os.path.splitdrive(filepath)[1])[0])[1]
         output = os.path.join(output, subfolder)
         if not os.path.isdir(output):
             os.mkdir(output)
-
-        filename = os.path.splitext(os.path.basename(mbmpath))[0] + '.png'
-
-        if bump:
-            img = self.readHeight2Bump(img)
 
         img.save(os.path.join(output, filename))
 
