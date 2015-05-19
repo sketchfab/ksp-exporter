@@ -274,19 +274,21 @@ class KSP2Skfb(object):
         converted_textures = self.convert_textures(mu_data.textures, path, normalmaps_index)
         return converted_textures
 
-    def get_asset_files(self, asset_files):
+    def get_asset_files(self, part_assets):
         ''' Get the assets files (cfg + mu + textures)'''
         c = Converter()
         files = set()
-        for f in asset_files:
-            files.add(f)
-            if os.path.splitext(f)[-1] == '.mu':
-                # Read the .mu file to get textures
-                # Get the Textures
-                textures = self.get_mu_textures(f)
-                files.update(textures)
+        try:
+            for f in part_assets:
+                files.add(f)
+                if os.path.splitext(f)[-1] == '.mu':
+                    # Read the .mu file to get textures
+                    files.update(self.get_mu_textures(f))
 
-        return list(files)
+            return list(files)
+        except EOFError:
+            print("Warning: the part was skipped")
+            return []
 
     def get_craft_unique_assets(self, craftnodes):
         ''' Get a set of craft assets '''
