@@ -121,13 +121,20 @@ class KSP2Skfb(object):
                     self.craft_files.append(os.path.join(root, filename))
 
     def list_parts(self):
+
         for root, dirs, files in os.walk(self.game_dir):
             if self.uses_qt:
-                from PyQt4 import QtCore
-                self.emitter.emit(QtCore.SIGNAL('building(QString, int, int)'), "Scanning game directory...", -1, -1)
+                try:
+                    from PyQt4 import QtCore
+                    self.emitter.emit(QtCore.SIGNAL('building(QString, int, int)'), "Scanning game directory...", -1, -1)
+                except Exception as e:
+                    pass
             for filename in files:
-                if os.path.splitext(filename)[-1] == '.cfg':
-                    self.get_part_name_from_cfg(os.path.join(root, filename))
+                try:
+                    if os.path.splitext(filename)[-1] == '.cfg':
+                        self.get_part_name_from_cfg(os.path.join(root, filename))
+                except Exception as e:
+                    pass
 
     def look_for_mu_file(self, cfg_filepath):
         ''' Look for a matching mu file '''
@@ -310,7 +317,7 @@ class KSP2Skfb(object):
             assets_set = self.get_craft_unique_assets(craftnodes)
             for asset in assets_set:
                 if asset not in self.parts:
-                    print("Warning: part '{}' not found".format(partname))
+                    print("Warning: part '{}' not found".format(asset))
                 else:
                     if self.uses_qt:
                         from PyQt4 import QtCore
