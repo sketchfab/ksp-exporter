@@ -54,7 +54,7 @@ class SkfbUploader(object):
             'token': options.get('token').decode('utf8'),
             'name': options.get('name', 'Craft').decode('utf8'),
             'description': options.get('description', '').decode('utf8'),
-            'tags': options.get('tags', 'KSP').decode('utf8'),
+            'tags': u'KSP ' + options.get('tags', '').decode('utf8'),
             'source': 'ksp-exporter'
         }
         return SkfbUploader.post(SKETCHFAB_API_URL, archive, **params)
