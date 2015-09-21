@@ -2,6 +2,8 @@ from PyQt4 import QtGui, QtCore
 from kspmanager import KSP2Skfb, SKETCHFAB_MODEL_URL
 import os
 import json
+import traceback
+import StringIO
 
 
 # Note: QString are unicode, see http://pyqt.sourceforge.net/Docs/PyQt4/qstring.html#details
@@ -209,9 +211,18 @@ class Window(QtGui.QWidget):
                 tags='KSP ' + to_utf8(self.tags_tb.text()),
                 token=to_utf8(self.api_token_tb.text()))
         except Exception as e:
-            # QtGui.QMessageBox.critical(self, "Error", '{}'.format(e))
-            QtGui.QMessageBox.critical(self, "Unhandled error", '{}: {}'.format(type(e).__name__, e))
+            io = StringIO.StringIO()
+            traceback.print_exc(file=io)
+            current_file = self.manager.current_file
+            current_part = self.manager.current_part
+            # The traceback paths are fixed by the compilation and there is no non-unicode
+            # characters, so implicit conversion to unicode in format(io.getvalue()) is ok here
+            # current_file and current_part are unicode
+            debug_message = u'{} \n{}'.format(io.getvalue(), current_file)
+            QtGui.QMessageBox.critical(self, u'Unhandled error [{}]'.format(current_part),
+                                       u'{}: {}'.format(type(e).__name__, debug_message))
             self.set_upload_btn_state('publish')
+
             return
 
         progress = QtGui.QProgressDialog("Uploading...", "Cancel", 0, 100, self)

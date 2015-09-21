@@ -111,6 +111,9 @@ class KSP2Skfb(object):
             self.emitter = QtCore.QObject()
         self.sign = None
         self.set_game_dir(game_dir or u'C:\\Kerbal Space Program')
+        # Debug data
+        self.current_part = u''
+        self.current_file = u''
 
     def set_game_dir(self, game_dir_path):
         self.game_dir = game_dir_path
@@ -163,6 +166,7 @@ class KSP2Skfb(object):
             cfg_dir = None
             # Add the cfg path to the part assets
             part_assets.append(cfg_filepath)
+            self.current_file = cfg_filepath
             for line in cfg_file:
                 token = line.split('=')[0].strip()
                 if token == 'name':
@@ -245,6 +249,7 @@ class KSP2Skfb(object):
             existing_texture = self.get_existing_texture_file(os.path.join(path, mutextures[idx].name))
             if existing_texture:
                 # DDS and MBM need to be converted into PNG
+                self.current_file = existing_texture
                 if os.path.splitext(existing_texture)[-1] in ['.dds', '.mbm']:
                     # Get the converted texture
                     source_image = self.convert(existing_texture, idx in convert_indexes)
@@ -288,6 +293,7 @@ class KSP2Skfb(object):
                 files.add(f)
                 if os.path.splitext(f)[-1] == '.mu':
                     # Read the .mu file to get textures
+                    self.current_file = f
                     files.update(self.get_mu_textures(f))
 
             return list(files)
@@ -317,12 +323,14 @@ class KSP2Skfb(object):
                 if asset not in self.parts:
                     print("Warning: part '{}' not found".format(asset))
                 else:
+                    self.current_part = unicode(asset, 'utf8')
                     if self.uses_qt:
                         from PyQt4 import QtCore
                         self.emitter.emit(QtCore.SIGNAL('building(QString, int, int)'), "Building",
                                           list(assets_set).index(asset), len(assets_set))
                     print('Getting files for {}'.format(asset))
                     craft_assets.update(self.get_asset_files(self.parts[asset]))
+
         return craft_assets
 
     def build_zip(self, craft_name, craft_file, craft_assets):
