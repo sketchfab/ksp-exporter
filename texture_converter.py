@@ -4,20 +4,20 @@ import tempfile
 import pyglet
 from struct import unpack
 from math import sqrt
-from PIL import Image, ImageFilter, ImageChops
+from PIL import Image, ImageChops
 from pyglet.image.codecs.dds import DDSImageDecoder
 
 
 class Converter(object):
     # Code snippet from http://www.pythonstuff.org/glsl/normalmaps_from_heightmaps.html
-    def height2bump(self,  heightBand ): # normal[0..2] band-array
+    def height2bump(self, heightBand):  # normal[0..2] band-array
         global verbose
         r = ImageChops.constant(heightBand, 128)
         g = ImageChops.constant(heightBand, 128)
         b = ImageChops.constant(heightBand, 128)
-        rr=r.load()
-        gg=g.load()
-        bb=b.load()
+        rr = r.load()
+        gg = g.load()
+        bb = b.load()
         width = heightBand.size[0]
         height = heightBand.size[1]
         data = list(heightBand.getdata())
@@ -30,23 +30,22 @@ class Converter(object):
                 pixelR = pixel + 1
                 pixelT = pixel - width
                 pixelB = pixel + width
-                dx = -((data[pixelR] - data[pixelL]) / (bits *2.0))
-                dy = -((data[pixelT] - data[pixelB]) / (bits *2.0))
+                dx = -((data[pixelR] - data[pixelL]) / (bits * 2.0))
+                dy = -((data[pixelT] - data[pixelB]) / (bits * 2.0))
                 l = sqrt(1 + dx**2 + dy**2)
-                dz = 1  / l
+                dz = 1 / l
                 dx = dx / l
                 dy = dy / l
 
-                #rgba  tex direct
-                #pixelPos = pixel * 4
-                #outp[pixel * 4] = dx
-                #outp[pixel ] = dy
-                #outp[pixel + 2] = dz
+                # rgba tex direct
+                # pixelPos = pixel * 4
+                # outp[pixel * 4] = dx
+                # outp[pixel ] = dy
+                # outp[pixel + 2] = dz
                 rr[x, y] = dx*bits + 128
                 gg[x, y] = dy*bits + 128
                 bb[x, y] = dz*bits + 128
         return([r, g, b])
-
 
     def readHeight2Bump(self, input_image):
         height = input_image.split()[0]
@@ -76,14 +75,13 @@ class Converter(object):
         da = pyglet.image.load(ddspath, decoder=DDSImageDecoder()).get_texture().get_image_data()
         img_format = 'RGBA' if len(da.format) == 4 else 'RGB'
 
-        imagedata=da.get_data(img_format, len(da.format) * da.width)
+        imagedata = da.get_data(img_format, len(da.format) * da.width)
         img = Image.fromstring(img_format, (da.width, da.height), imagedata)
         img = img.transpose(1)
         if convert_tonormal:
             img = self.readHeight2Bump(img)
 
         return img
-
 
     def load_image(self, filepath, convert_tonormal=False):
         ''' Converts image to png'''

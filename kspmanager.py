@@ -181,7 +181,7 @@ class KSP2Skfb(object):
                         return
                     # Add the mesh to the part assets
                     part_assets.append(mesh_path)
-                if part_name and not part_name in self.parts:
+                if part_name and part_name not in self.parts:
                     self.parts[part_name] = part_assets
 
     def list(self):
@@ -225,7 +225,6 @@ class KSP2Skfb(object):
 
     def get_existing_texture_file(self, filepath):
         exts = ['.dds', '.mbm', '.png', '.tga']
-        base_path = os.path.splitext(filepath)[0]
         for ext in exts:
             if os.path.exists(os.path.splitext(filepath)[0] + ext):
                 return os.path.splitext(filepath)[0] + ext
@@ -250,7 +249,8 @@ class KSP2Skfb(object):
                     # and the path to set in the .zip so that it is in the same directory that the model
                     if self.uses_qt:
                         from PyQt4 import QtCore
-                        self.emitter.emit(QtCore.SIGNAL('converting(QString)'), "Converting : {}".format(os.path.basename(archive_path)))
+                        self.emitter.emit(QtCore.SIGNAL('converting(QString)'),
+                                          "Converting : {}".format(os.path.basename(archive_path)))
                     textures.add((source_image, archive_path))
                 else:
                     textures.add(existing_texture)
@@ -276,7 +276,6 @@ class KSP2Skfb(object):
 
     def get_asset_files(self, part_assets):
         ''' Get the assets files (cfg + mu + textures)'''
-        c = Converter()
         files = set()
         try:
             for f in part_assets:
@@ -314,7 +313,8 @@ class KSP2Skfb(object):
                 else:
                     if self.uses_qt:
                         from PyQt4 import QtCore
-                        self.emitter.emit(QtCore.SIGNAL('building(QString, int, int)'), "Building", list(assets_set).index(asset), len(assets_set))
+                        self.emitter.emit(QtCore.SIGNAL('building(QString, int, int)'), "Building",
+                                          list(assets_set).index(asset), len(assets_set))
                     print('Getting files for {}'.format(asset))
                     craft_assets.update(self.get_asset_files(self.parts[asset]))
         return craft_assets
@@ -338,7 +338,6 @@ class KSP2Skfb(object):
 
         return archive
 
-
     def clear_tmp_files(self):
         ''' Clear temp files '''
         print('Cleaning temp files...')
@@ -347,7 +346,7 @@ class KSP2Skfb(object):
                 if os.path.isdir(d):
                     for f in os.listdir(d):
                         try:
-                            os.remove(os.path.join(d,f))
+                            os.remove(os.path.join(d, f))
                         except:
                             pass
                     try:

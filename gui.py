@@ -2,7 +2,6 @@ from PyQt4 import QtGui, QtCore
 from kspmanager import KSP2Skfb, SKETCHFAB_MODEL_URL
 import os
 import json
-import sys
 
 
 class Window(QtGui.QWidget):
@@ -38,7 +37,7 @@ class Window(QtGui.QWidget):
         self.craft_list_ql = QtGui.QListWidget()
 
         # SKFB UI
-        ## API Token
+        # API Token
         api_token_label = QtGui.QLabel('Sketchfab API token*:')
         api_token_label.setStyleSheet("color: black; font-weight : bold;")
         self.api_token_tb = QtGui.QLineEdit()
@@ -54,24 +53,24 @@ class Window(QtGui.QWidget):
         api_token_info_label.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
         api_token_info_label.setOpenExternalLinks(True)
 
-        ## Model name
+        # Model name
         name_label = QtGui.QLabel('Model Name')
         self.name_tb = QtGui.QLineEdit()
         self.name_tb.setMaxLength(48)
         self.name_tb.setPlaceholderText('Enter model name [up to 48 characters]')
 
-        ## Description
+        # Description
         self.description_label = QtGui.QLabel('Description (0/1024 characters)')
         self.description_tb = QtGui.QTextEdit()
         self.description_tb.textChanged.connect(self.description_input_limit)
 
-        ## Tags
+        # Tags
         tags_label = QtGui.QLabel('Tags (separated by spaces)')
         self.tags_tb = QtGui.QLineEdit()
         self.tags_tb.setPlaceholderText('KerbalSpaceProgram Rocket Craft')
         ksp_tag_label = QtGui.QLabel('KSP')
 
-        ## Upload btn
+        # Upload btn
         self.upload_btn = QtGui.QPushButton("Publish to Sketchfab", self)
         self.upload_btn.setStyleSheet("background-color: rgb(28, 170, 217); color: white;")
         self.upload_btn.clicked.connect(self.start_upload)
@@ -113,8 +112,10 @@ class Window(QtGui.QWidget):
         self.manager = KSP2Skfb(self.game_dir, True)
         self.update_game_ui(self.game_dir)
         self.enable_skfb_ui(False)
-        QtCore.QObject.connect(self.manager.emitter, QtCore.SIGNAL('building(QString, int, int)'), self.update_upload_btn)
-        QtCore.QObject.connect(self.manager.emitter, QtCore.SIGNAL('converting(QString)'), self.update_upload_lb)
+        QtCore.QObject.connect(self.manager.emitter, QtCore.SIGNAL('building(QString, int, int)'),
+                               self.update_upload_btn)
+        QtCore.QObject.connect(self.manager.emitter, QtCore.SIGNAL('converting(QString)'),
+                               self.update_upload_lb)
 
         # If bad path at launch, pop up the filedialog to locate it
         if not os.path.exists(self.game_dir):
@@ -155,7 +156,7 @@ class Window(QtGui.QWidget):
             self.upload_btn.setEnabled(True)
             self.upload_btn.setText('Building zip archive...')
             self.upload_btn.setStyleSheet("background-color: rgb(170, 170, 170); color: white;")
-        elif state =='publish':
+        elif state == 'publish':
             self.upload_btn.setEnabled(True)
             self.upload_btn.setText('Publish to Sketchfab')
             self.upload_btn.setStyleSheet("background-color: rgb(28, 170, 217); color: white;")
@@ -165,7 +166,8 @@ class Window(QtGui.QWidget):
     def description_input_limit(self):
         if len(self.description_tb.toPlainText()) > 1024:
             self.description_tb.setText(self.description_tb.toPlainText())
-        self.description_label.setText('Description ({}/1024 characters)'.format(len(self.description_tb.toPlainText())))
+        self.description_label.setText('Description ({}/1024 characters)'
+                                       .format(len(self.description_tb.toPlainText())))
 
     def strip_craft_name(self, index):
         return self.craft_list[index].split('.')[1].strip()
@@ -274,7 +276,7 @@ class Window(QtGui.QWidget):
                 print(err.errorString())
             self.reply.ignoreSslErrors()
 
-        ## Connections
+        # Connections
         self.reply.finished.connect(upload_finished)
         self.reply.error.connect(upload_error)
         self.reply.uploadProgress.connect(upload_progress)

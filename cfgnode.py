@@ -21,22 +21,26 @@
 
 from script import Script
 
+
 class ConfigNodeError(Exception):
     def __init__(self, fname, line, message):
         Exception.__init__(self, "%s:%d: %s" % (fname, line, message))
         self.line = line
 
+
 def cfg_error(self, msg):
     print ('Error while parsing the cfg node')
-   # raise ConfigNodeError(self.filename, self.line, msg)
+    # raise ConfigNodeError(self.filename, self.line, msg)
+
 
 class ConfigNode:
     def __init__(self):
         self.values = []
         self.nodes = []
+
     @classmethod
-    def ParseNode(cls, node, script, top = False):
-        while script.getToken(True) != None:
+    def ParseNode(cls, node, script, top=False):
+        while script.getToken(True) is not None:
             if script.token in (top and ['{', '='] or ['{', '=']):
                 cfg_error(script, "unexpected " + script.token)
             if script.token == '}':
@@ -58,6 +62,7 @@ class ConfigNode:
                     cfg_error(script, "unexpected " + script.token)
         if not top:
             cfg_error(script, "unexpected end of file")
+
     @classmethod
     def load(cls, text):
         script = Script("", text, "{}=")
@@ -65,35 +70,42 @@ class ConfigNode:
         node = ConfigNode()
         ConfigNode.ParseNode(node, script, True)
         return node
+
     def GetNode(self, key):
         for n in self.nodes:
             if n[0] == key:
                 return n[1]
         return None
+
     def GetNodes(self, key):
         nodes = []
         for n in self.nodes:
             if n[0] == key:
                 nodes.append(n[1])
         return nodes
+
     def GetValue(self, key):
         for v in self.values:
             if v[0] == key:
                 return v[1]
         return None
+
     def GetValues(self, key):
         values = []
         for v in self.values:
             if v[0] == key:
                 values.append(v[1])
         return values
+
     def AddNode(self, key):
-        node = ConfigNode ()
+        node = ConfigNode()
         self.nodes.append((key, node))
         return node
+
     def AddValue(self, key, value):
         self.values.append((key, value))
-    def ToString(self, level = 0):
+
+    def ToString(self, level=0):
         text = "{ \n"
         for val in self.values:
             text += "%s%s = %s\n" % ("    " * (level + 1), val[0], val[1])

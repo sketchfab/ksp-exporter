@@ -1,19 +1,5 @@
-from struct import pack, unpack
+from struct import unpack
 
-def get_mu_textures(mu_path):
-	''' Returns the list of the referenced texture paths'''
-        self.textures = []
-        with open(mu_path, "rb") as self.file:
-            self.magic, self.version = self.read_int(2)
-            if (self.magic != MuEnum.MODEL_BINARY or self.version < 0
-                or self.version > MuEnum.FILE_VERSION):
-                return None
-            self.name = self.read_string()
-            self.obj = MuObject().read(self)
-            #self.read_materials()
-            #self.read_textures()
-            del self.file
-            return self
 
 class MuEnum:
     MODEL_BINARY = 76543
@@ -30,7 +16,7 @@ class MuEnum:
     ET_MESH_RENDERER = 8
     ET_SKINNED_MESH_RENDERER = 9
     ET_MATERIALS = 10
-    ET_MATERIAL = 11    #XXX not used?
+    ET_MATERIAL = 11    # XXX not used?
     ET_TEXTURES = 12
     ET_MESH_START = 13
     ET_MESH_VERTS = 14
@@ -51,37 +37,37 @@ class MuEnum:
     ET_WHEEL_COLLIDER = 29
     ET_CAMERA = 30
     ENTRY_TYPES = {
-        'ET_CHILD_TRANSFORM_START':ET_CHILD_TRANSFORM_START,
-        'ET_CHILD_TRANSFORM_END':ET_CHILD_TRANSFORM_END,
-        'ET_ANIMATION':ET_ANIMATION,
-        'ET_MESH_COLLIDER':ET_MESH_COLLIDER,
-        'ET_SPHERE_COLLIDER':ET_SPHERE_COLLIDER,
-        'ET_CAPSULE_COLLIDER':ET_CAPSULE_COLLIDER,
-        'ET_BOX_COLLIDER':ET_BOX_COLLIDER,
-        'ET_MESH_FILTER':ET_MESH_FILTER,
-        'ET_MESH_RENDERER':ET_MESH_RENDERER,
-        'ET_SKINNED_MESH_RENDERER':ET_SKINNED_MESH_RENDERER,
-        'ET_MATERIALS':ET_MATERIALS,
-        'ET_MATERIAL':ET_MATERIAL,
-        'ET_TEXTURES':ET_TEXTURES,
-        'ET_MESH_START':ET_MESH_START,
-        'ET_MESH_VERTS':ET_MESH_VERTS,
-        'ET_MESH_UV':ET_MESH_UV,
-        'ET_MESH_UV2':ET_MESH_UV2,
-        'ET_MESH_NORMALS':ET_MESH_NORMALS,
-        'ET_MESH_TANGENTS':ET_MESH_TANGENTS,
-        'ET_MESH_TRIANGLES':ET_MESH_TRIANGLES,
-        'ET_MESH_BONE_WEIGHTS':ET_MESH_BONE_WEIGHTS,
-        'ET_MESH_BIND_POSES':ET_MESH_BIND_POSES,
-        'ET_MESH_END':ET_MESH_END,
-        'ET_LIGHT':ET_LIGHT,
-        'ET_TAG_AND_LAYER':ET_TAG_AND_LAYER,
-        'ET_MESH_COLLIDER2':ET_MESH_COLLIDER2,
-        'ET_SPHERE_COLLIDER2':ET_SPHERE_COLLIDER2,
-        'ET_CAPSULE_COLLIDER2':ET_CAPSULE_COLLIDER2,
-        'ET_BOX_COLLIDER2':ET_BOX_COLLIDER2,
-        'ET_WHEEL_COLLIDER':ET_WHEEL_COLLIDER,
-        'ET_CAMERA':ET_CAMERA,
+        'ET_CHILD_TRANSFORM_START': ET_CHILD_TRANSFORM_START,
+        'ET_CHILD_TRANSFORM_END': ET_CHILD_TRANSFORM_END,
+        'ET_ANIMATION': ET_ANIMATION,
+        'ET_MESH_COLLIDER': ET_MESH_COLLIDER,
+        'ET_SPHERE_COLLIDER': ET_SPHERE_COLLIDER,
+        'ET_CAPSULE_COLLIDER': ET_CAPSULE_COLLIDER,
+        'ET_BOX_COLLIDER': ET_BOX_COLLIDER,
+        'ET_MESH_FILTER': ET_MESH_FILTER,
+        'ET_MESH_RENDERER': ET_MESH_RENDERER,
+        'ET_SKINNED_MESH_RENDERER': ET_SKINNED_MESH_RENDERER,
+        'ET_MATERIALS': ET_MATERIALS,
+        'ET_MATERIAL': ET_MATERIAL,
+        'ET_TEXTURES': ET_TEXTURES,
+        'ET_MESH_START': ET_MESH_START,
+        'ET_MESH_VERTS': ET_MESH_VERTS,
+        'ET_MESH_UV': ET_MESH_UV,
+        'ET_MESH_UV2': ET_MESH_UV2,
+        'ET_MESH_NORMALS': ET_MESH_NORMALS,
+        'ET_MESH_TANGENTS': ET_MESH_TANGENTS,
+        'ET_MESH_TRIANGLES': ET_MESH_TRIANGLES,
+        'ET_MESH_BONE_WEIGHTS': ET_MESH_BONE_WEIGHTS,
+        'ET_MESH_BIND_POSES': ET_MESH_BIND_POSES,
+        'ET_MESH_END': ET_MESH_END,
+        'ET_LIGHT': ET_LIGHT,
+        'ET_TAG_AND_LAYER': ET_TAG_AND_LAYER,
+        'ET_MESH_COLLIDER2': ET_MESH_COLLIDER2,
+        'ET_SPHERE_COLLIDER2': ET_SPHERE_COLLIDER2,
+        'ET_CAPSULE_COLLIDER2': ET_CAPSULE_COLLIDER2,
+        'ET_BOX_COLLIDER2': ET_BOX_COLLIDER2,
+        'ET_WHEEL_COLLIDER': ET_WHEEL_COLLIDER,
+        'ET_CAMERA': ET_CAMERA,
     }
 
     ST_CUSTOM = 0
@@ -99,20 +85,20 @@ class MuEnum:
     ST_ALPHA_UNLIT = 12
     ST_UNLIT = 13
     SHADER_TYPES = {
-        'ST_CUSTOM':ST_CUSTOM,
-        'ST_DIFFUSE':ST_DIFFUSE,
-        'ST_SPECULAR':ST_SPECULAR,
-        'ST_BUMPED':ST_BUMPED,
-        'ST_BUMPED_SPECULAR':ST_BUMPED_SPECULAR,
-        'ST_EMISSIVE':ST_EMISSIVE,
-        'ST_EMISSIVE_SPECULAR':ST_EMISSIVE_SPECULAR,
-        'ST_EMISSIVE_BUMPED_SPECULAR':ST_EMISSIVE_BUMPED_SPECULAR,
-        'ST_ALPHA_CUTOUT':ST_ALPHA_CUTOUT,
-        'ST_ALPHA_CUTOUT_BUMPED':ST_ALPHA_CUTOUT_BUMPED,
-        'ST_ALPHA':ST_ALPHA,
-        'ST_ALPHA_SPECULAR':ST_ALPHA_SPECULAR,
-        'ST_ALPHA_UNLIT':ST_ALPHA_UNLIT,
-        'ST_UNLIT':ST_UNLIT,
+        'ST_CUSTOM': ST_CUSTOM,
+        'ST_DIFFUSE': ST_DIFFUSE,
+        'ST_SPECULAR': ST_SPECULAR,
+        'ST_BUMPED': ST_BUMPED,
+        'ST_BUMPED_SPECULAR': ST_BUMPED_SPECULAR,
+        'ST_EMISSIVE': ST_EMISSIVE,
+        'ST_EMISSIVE_SPECULAR': ST_EMISSIVE_SPECULAR,
+        'ST_EMISSIVE_BUMPED_SPECULAR': ST_EMISSIVE_BUMPED_SPECULAR,
+        'ST_ALPHA_CUTOUT': ST_ALPHA_CUTOUT,
+        'ST_ALPHA_CUTOUT_BUMPED': ST_ALPHA_CUTOUT_BUMPED,
+        'ST_ALPHA': ST_ALPHA,
+        'ST_ALPHA_SPECULAR': ST_ALPHA_SPECULAR,
+        'ST_ALPHA_UNLIT': ST_ALPHA_UNLIT,
+        'ST_UNLIT': ST_UNLIT,
     }
     ShaderNames = (
         "",
@@ -136,35 +122,38 @@ class MuEnum:
     AT_LIGHT = 2
     AT_AUDIO_SOURCE = 3
     ANIMATION_TYPES = {
-        'AT_TRANSFORM':AT_TRANSFORM,
-        'AT_MATERIAL':AT_MATERIAL,
-        'AT_LIGHT':AT_LIGHT,
-        'AT_AUDIO_SOURCE':AT_AUDIO_SOURCE,
+        'AT_TRANSFORM': AT_TRANSFORM,
+        'AT_MATERIAL': AT_MATERIAL,
+        'AT_LIGHT': AT_LIGHT,
+        'AT_AUDIO_SOURCE': AT_AUDIO_SOURCE,
     }
 
     TT_TEXTURE = 0
     TT_NORMAL_MAP = 1
     TEXTURE_TYPES = {
-        'TT_TEXTURE':TT_TEXTURE,
-        'TT_NORMAL_MAP':TT_NORMAL_MAP,
+        'TT_TEXTURE': TT_TEXTURE,
+        'TT_NORMAL_MAP': TT_NORMAL_MAP,
     }
+
 
 class MuTexture:
     def __init__(self):
         pass
+
     def read(self, mu):
-        #print("MuTexture")
+        # print("MuTexture")
         self.name = mu.read_string()
         self.type = mu.read_int()
-        #print("   ", self.name, self.type)
+        # print("   ", self.name, self.type)
         return self
 
 
 class MuMatTex:
     def __init__(self):
         pass
+
     def read(self, mu):
-        #print("MuMatTex")
+        # print("MuMatTex")
         self.index = mu.read_int()
         self.scale = mu.read_float(2)
         self.offset = mu.read_float(2)
@@ -174,6 +163,7 @@ class MuMatTex:
 class MuMaterial:
     def __init__(self):
         pass
+
     def read(self, mu):
         self.name = mu.read_string()
         self.type = mu.read_int()
@@ -236,6 +226,7 @@ class MuMaterial:
 class MuTransform:
     def __init__(self):
         pass
+
     def read(self, mu):
         self.name = mu.read_string()
         self.localPosition = mu.read_vector()
@@ -248,6 +239,7 @@ class MuTransform:
 class MuTagLayer:
     def __init__(self):
         pass
+
     def read(self, mu):
         self.tag = mu.read_string()
         self.layer = mu.read_int()
@@ -257,10 +249,11 @@ class MuTagLayer:
 class MuKey:
     def __init__(self):
         pass
+
     def read(self, mu):
         self.time = mu.read_float()
         self.value = mu.read_float()
-        self.tangent = mu.read_float(2) # in, out
+        self.tangent = mu.read_float(2)  # in, out
         self.tangentMode = mu.read_int()
         # editable, smooth, linear, stepped (0..3?)
         return self
@@ -269,6 +262,7 @@ class MuKey:
 class MuCurve:
     def __init__(self):
         pass
+
     def read(self, mu):
         self.path = mu.read_string()
         self.property = mu.read_string()
@@ -284,6 +278,7 @@ class MuCurve:
 class MuClip:
     def __init__(self):
         self.curves = []
+
     def read(self, mu):
         self.name = mu.read_string()
         self.lbCenter = mu.read_vector()
@@ -298,6 +293,7 @@ class MuClip:
 class MuAnimation:
     def __init__(self):
         self.clips = []
+
     def read(self, mu):
         num_clips = mu.read_int()
         for i in range(num_clips):
@@ -311,6 +307,7 @@ class MuBoneWeight:
     def __init__(self):
         self.indices = []
         self.weights = []
+
     def read(self, mu):
         for i in range(4):
             self.indices.append(mu.read_int())
@@ -328,6 +325,7 @@ class MuMesh:
         self.boneWeights = []
         self.bindPoses = []
         self.submeshes = []
+
     def read(self, mu):
         start = mu.read_int()
         if start != MuEnum.ET_MESH_START:
@@ -364,10 +362,10 @@ class MuMesh:
                 tris = []
                 for i in range(int(num_tris / 3)):
                     tri = mu.read_int(3)
-                    #reverse the triangle winding for Blender (because of the
+                    # reverse the triangle winding for Blender (because of the
                     # LHS/RHS swap)
-                    #avoid putting 0 at the end of the list (Blender doesn't
-                    #like that)
+                    # avoid putting 0 at the end of the list (Blender doesn't
+                    # like that)
                     if not tri[0]:
                         tri = tri[0], tri[2], tri[1]
                     else:
@@ -383,6 +381,7 @@ class MuRenderer:
     def __init__(self):
         self.castShadows = 1
         self.receiveShadows = 1
+
     def read(self, mu):
         if mu.version > 0:
             self.castShadows = mu.read_byte()
@@ -396,6 +395,7 @@ class MuSkinnedMeshRenderer:
     def __init__(self):
         self.materials = []
         self.bones = []
+
     def read(self, mu):
         num_mat = mu.read_int()
         for i in range(num_mat):
@@ -414,6 +414,7 @@ class MuSkinnedMeshRenderer:
 class MuCollider_Base:
     def __init__(self, type):
         self.type = type
+
 
 class MuColliderMesh(MuCollider_Base):
     def read(self, mu):
@@ -460,6 +461,7 @@ class MuColliderBox(MuCollider_Base):
 class MuSpring:
     def __init__(self):
         pass
+
     def read(self, mu):
         self.spring = mu.read_float()
         self.damper = mu.read_float()
@@ -470,6 +472,7 @@ class MuSpring:
 class MuFriction:
     def __init__(self):
         pass
+
     def read(self, mu):
         self.extremumSlip = mu.read_float()
         self.extremumValue = mu.read_float()
@@ -482,6 +485,7 @@ class MuFriction:
 class MuColliderWheel(MuCollider_Base):
     def __init__(self):
         MuCollider_Base.__init__(self, 0)
+
     def read(self, mu):
         self.mass = mu.read_float()
         self.radius = mu.read_float()
@@ -511,6 +515,7 @@ def MuCollider(type):
 class MuCamera:
     def __init__(self):
         pass
+
     def read(self, mu):
         self.clearFlags = mu.read_int()
         self.backgroundColor = mu.read_float(4)
@@ -526,6 +531,7 @@ class MuCamera:
 class MuLight:
     def __init__(self):
         pass
+
     def read(self, mu):
         self.type = mu.read_int()
         self.intensity = mu.read_float()
@@ -541,8 +547,9 @@ class MuObject:
     def __init__(self, name=""):
         self.name = name
         self.children = []
+
     def read(self, mu):
-        #print("MuObject")
+        # print("MuObject")
         self.transform = MuTransform().read(mu)
         while True:
             try:
@@ -586,7 +593,7 @@ class MuObject:
                 for i in range(tex_count):
                     mu.textures.append(MuTexture().read(mu))
             else:
-                #print(entry_type, hex(mu.file.tell()))
+                # print(entry_type, hex(mu.file.tell()))
                 pass
         return self
 
@@ -624,7 +631,7 @@ class Mu:
 
     def read_vector(self):
         v = self.read_float(3)
-        #convert from Unity's LHS to Blender's RHS
+        # convert from Unity's LHS to Blender's RHS
         v = v[0], v[2], v[1]
         return v
 
@@ -652,28 +659,29 @@ class Mu:
         data = self.file.read(size)
         if len(data) < size:
             raise EOFError
-        if type(data) == type(""):
+        if isinstance(data, str):
             return data
         s = ""
         for c in data:
             s = s + chr(c)
         return s
 
-    def __init__(self, name = "mu"):
+    def __init__(self, name="mu"):
         self.name = name
         pass
+
     def read(self, filepath):
         self.materials = []
         self.textures = []
         self.file = open(filepath, "rb")
         self.magic, self.version = self.read_int(2)
         if (self.magic != MuEnum.MODEL_BINARY or self.version < 0
-            or self.version > MuEnum.FILE_VERSION):
+                or self.version > MuEnum.FILE_VERSION):
             return None
         self.name = self.read_string()
-        #print("version: %d '%s'" % (self.version, self.name))
+        # print("version: %d '%s'" % (self.version, self.name))
         self.obj = MuObject().read(self)
-        #self.read_materials()
-        #self.read_textures()
+        # self.read_materials()
+        # self.read_textures()
         del self.file
         return self
