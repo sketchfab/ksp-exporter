@@ -7,9 +7,13 @@ from cfgnode import ConfigNode
 from mureader import Mu
 from texture_converter import Converter
 
-SKETCHFAB_DOMAIN = 'sketchfab.com'
-SKETCHFAB_API_URL = 'https://api.{}/v2/models'.format(SKETCHFAB_DOMAIN)
-SKETCHFAB_MODEL_URL = 'https://{}/models'.format(SKETCHFAB_DOMAIN)
+SKETCHFAB_DOMAIN = u'sketchfab.com'
+SKETCHFAB_API_URL = u'https://api.{}/v2/models'.format(SKETCHFAB_DOMAIN)
+SKETCHFAB_MODEL_URL = u'https://{}/models'.format(SKETCHFAB_DOMAIN)
+# Setting the encoding for zip to enable getting the good paths for files
+# to put in the archive
+ENCODING = 'latin-1' if os.name is 'nt' else 'utf8'
+to_utf8 = lambda x: x.encode('utf8')
 
 
 class SkfbUploader(object):
@@ -36,7 +40,7 @@ class SkfbUploader(object):
                                          data=params,
                                          verify=False)
             if response.status_code == 201:
-                return SKETCHFAB_MODEL_URL + '/' + json.loads(response.content)['uid']
+                return to_utf8(SKETCHFAB_MODEL_URL) + '/' + json.loads(response.content)['uid']
             else:
                 return json.loads(response.content)['detail']
 
@@ -57,7 +61,7 @@ class SkfbUploader(object):
             'tags': u'KSP ' + options.get('tags', '').decode('utf8'),
             'source': 'ksp-exporter'
         }
-        return SkfbUploader.post(SKETCHFAB_API_URL, archive, **params)
+        return SkfbUploader.post(to_utf8(SKETCHFAB_API_URL), archive, **params)
 
     @staticmethod
     def qt_upload(archive, **options):
@@ -86,7 +90,7 @@ class SkfbUploader(object):
         data.setParent(multiPart)
         multiPart.append(modelPart)
 
-        url = QtCore.QUrl(SKETCHFAB_API_URL)
+        url = QtCore.QUrl(to_utf8(SKETCHFAB_API_URL))
         request = QtNetwork.QNetworkRequest(url)
         manager = QtNetwork.QNetworkAccessManager()
         reply = manager.post(request, multiPart)
@@ -106,7 +110,7 @@ class KSP2Skfb(object):
             from PyQt4 import QtCore
             self.emitter = QtCore.QObject()
         self.sign = None
-        self.set_game_dir(game_dir or 'C:\\Kerbal Space Program')
+        self.set_game_dir(game_dir or u'C:\\Kerbal Space Program')
 
     def set_game_dir(self, game_dir_path):
         self.game_dir = game_dir_path
@@ -143,8 +147,10 @@ class KSP2Skfb(object):
                     if os.path.splitext(f)[-1] == '.mu':
                         mesh_path = os.path.join(cfg_dir, f)
                         break
+
         if mesh_path:
-            print("A substitution mu file '{}' was found.".format(os.path.basename(mesh_path)))
+            print("A substitution mu file '{}' was found.".format(os.path.basename(mesh_path)
+                  .encode('utf8', errors='replace')))
 
         return mesh_path
 
@@ -185,13 +191,13 @@ class KSP2Skfb(object):
                     self.parts[part_name] = part_assets
 
     def list(self):
-        print('\n'.join(map(lambda name: '{}. {}'.format(name[0], name[1]),
+        print('\n'.join(map(lambda (index, name): '{}. {}'.format(index, to_utf8(name)),
                             enumerate(map(os.path.basename,
                                       map(lambda x: os.path.splitext(x)[0],
                                           self.craft_files))))))
 
     def get_craft_list(self):
-        return map(lambda name: '{}. {}'.format(name[0], name[1]),
+        return map(lambda (index, name): '{}. {}'.format(index, to_utf8(name)),
                    enumerate(map(os.path.basename,
                              map(lambda x: os.path.splitext(x)[0],
                                  self.craft_files))))
@@ -322,18 +328,18 @@ class KSP2Skfb(object):
     def build_zip(self, craft_name, craft_file, craft_assets):
         ''' Build a zip with craft_assets names'''
         output = tempfile.gettempdir()
-        archive = os.path.join(output, craft_name + '.zip')
+        archive = os.path.join(output, craft_name.encode(ENCODING) + '.zip')
         self.temp_files.add(archive)
         zip = zipfile.ZipFile(archive, 'w')
-        zip.write(craft_file, os.path.basename(craft_file))
+        zip.write(craft_file.encode(ENCODING), os.path.basename(craft_file.encode(ENCODING)))
         # When textures are converted, PNGs are put in the archive from the temp path but
         # with the MBM (game) path to keep their relative path with the model, inside the archive
         print('Building the .zip')
         for f in craft_assets:
             if isinstance(f, tuple):
-                zip.write(f[0], f[1])
+                zip.write(f[0].encode(ENCODING), f[1].encode(ENCODING))
             else:
-                zip.write(f)
+                zip.write(f.encode(ENCODING))
         zip.close()
 
         return archive
@@ -363,7 +369,7 @@ class KSP2Skfb(object):
 
 def parse_options(args=None):
     parser = argparse.ArgumentParser(description="List and select craft to upload to Sketchfab")
-    parser.add_argument("-g", "--game-dir", dest="game_dir",
+    parser.add_argument("-g", "--game-dir", dest="game_dir", type=unicode,
                         help="The main KSP directory (<C:\Kerbal Space Program> by default)", nargs='?')
     parser.add_argument("-u", "--upload", dest="upload", nargs='?',
                         help="Craft to upload", default=None)

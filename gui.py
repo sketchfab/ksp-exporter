@@ -4,19 +4,20 @@ import os
 import json
 
 
+# Note: QString are unicode, see http://pyqt.sourceforge.net/Docs/PyQt4/qstring.html#details
 class Window(QtGui.QWidget):
     def __init__(self, parent=None):
         super(Window, self).__init__(parent)
         self.setWindowTitle('Ksp2Sketchfab')
         self.settings = QtCore.QSettings("Sketchfab", "Ksp2Sketchfab")
-        self.game_dir = 'C:\\Kerbal Space Program'
+        self.game_dir = u'C:\\Kerbal Space Program'
         self.craft_list = []
         self.manager = None
 
         self.user_data = dict()
         self.get_user_data()
         if 'path' in self.user_data:
-            self.game_dir = self.user_data['path']
+            self.game_dir = self.user_data['path']  # value is always unicode
 
         # Setting the layouts
         self.main_layout = QtGui.QVBoxLayout()
@@ -300,14 +301,20 @@ class Window(QtGui.QWidget):
 
     def update_game_ui(self, game_dir):
         ''' Check if the game dir exists and if it contains crafts'''
+
+        # here game_dir is a Qstring, and manager expects unicode
+        if isinstance(game_dir, QtCore.QString):
+            game_dir = unicode(game_dir)
+
         self.game_dir = game_dir
         self.game_path_tb.setText(self.game_dir)
-        if os.path.exists(game_dir):
-            self.manager.set_game_dir(str(game_dir))
+
+        if os.path.exists(self.game_dir):
+            self.manager.set_game_dir(self.game_dir)
             if self.set_craft_list():
                 self.game_path_info_label.hide()
                 self.upload_btn.setEnabled(True)
-                self.user_data['path'] = '{}'.format(self.game_dir)
+                self.user_data['path'] = self.game_dir
                 self.dump_user_data()
             else:
                 self.craft_list_ql.setEnabled(False)
