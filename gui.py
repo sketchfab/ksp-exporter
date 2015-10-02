@@ -209,7 +209,8 @@ class Window(QtGui.QWidget):
                 name=to_utf8(self.name_tb.text()),
                 description=to_utf8(self.description_tb.toPlainText()),
                 tags='KSP ' + to_utf8(self.tags_tb.text()),
-                token=to_utf8(self.api_token_tb.text()))
+                token=to_utf8(self.api_token_tb.text()),
+                export_log=True)
         except Exception as e:
             io = StringIO.StringIO()
             traceback.print_exc(file=io)
@@ -222,7 +223,6 @@ class Window(QtGui.QWidget):
             QtGui.QMessageBox.critical(self, u'Unhandled error [{}]'.format(current_part),
                                        u'{}: {}'.format(type(e).__name__, debug_message))
             self.set_upload_btn_state('publish')
-
             return
 
         progress = QtGui.QProgressDialog("Uploading...", "Cancel", 0, 100, self)

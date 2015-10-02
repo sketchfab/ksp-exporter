@@ -3,6 +3,7 @@ import os
 import zipfile
 import json
 import tempfile
+import sys
 from cfgnode import ConfigNode
 from mureader import Mu
 from texture_converter import Converter
@@ -206,7 +207,23 @@ class KSP2Skfb(object):
                              map(lambda x: os.path.splitext(x)[0],
                                  self.craft_files))))
 
+    def close_log(self):
+        if self.logfile:
+            self.logfile.close()
+            sys.stdout = self.stdout_backup
+            print('file closed')
+
     def upload(self, craft_name, **options):
+        # Create log file and redirect outputs into it
+        if options.get('export_log', True):
+            self.logpath = os.path.join(tempfile.gettempdir(), u'ksp2sketchfab_export.log')
+            self.logfile = open(self.logpath, 'a+')
+            self.temp_files.add(self.logpath)
+
+            # redirect stdout in log file
+            self.stdout_backup = sys.stdout
+            sys.stdout = self.logfile
+
         archive = self.make_craft_archive(craft_name)
         if options.get('use_requests', False):
             options.pop('use_requests', None)
@@ -215,10 +232,16 @@ class KSP2Skfb(object):
             return SkfbUploader.qt_upload(archive, **options)
 
     def make_craft_archive(self, craft_name):
-        self.list_parts()
-        craft_path = self.get_craft_path(craft_name)
-        craft_assets = self.list_craft_assets(craft_path)
-        craft_name = os.path.splitext(os.path.basename(craft_path))[0]
+        try:
+            self.list_parts()
+            craft_path = self.get_craft_path(craft_name)
+            craft_assets = self.list_craft_assets(craft_path)
+            craft_name = os.path.splitext(os.path.basename(craft_path))[0]
+        except:
+            raise
+        finally:
+            self.close_log()
+
         return self.build_zip(craft_name, craft_path, craft_assets)
 
     def get_craft_path(self, name):
@@ -340,6 +363,8 @@ class KSP2Skfb(object):
         self.temp_files.add(archive)
         zip = zipfile.ZipFile(archive, 'w')
         zip.write(craft_file.encode(ENCODING), os.path.basename(craft_file.encode(ENCODING)))
+
+        zip.write(self.logpath, os.path.basename(self.logpath))
         # When textures are converted, PNGs are put in the archive from the temp path but
         # with the MBM (game) path to keep their relative path with the model, inside the archive
         print('Building the .zip')
