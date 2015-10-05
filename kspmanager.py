@@ -3,13 +3,18 @@ import os
 import zipfile
 import json
 import tempfile
+import sys
 from cfgnode import ConfigNode
 from mureader import Mu
 from texture_converter import Converter
 
-SKETCHFAB_DOMAIN = 'sketchfab.com'
-SKETCHFAB_API_URL = 'https://api.{}/v2/models'.format(SKETCHFAB_DOMAIN)
-SKETCHFAB_MODEL_URL = 'https://{}/models'.format(SKETCHFAB_DOMAIN)
+SKETCHFAB_DOMAIN = u'sketchfab.com'
+SKETCHFAB_API_URL = u'https://api.{}/v2/models'.format(SKETCHFAB_DOMAIN)
+SKETCHFAB_MODEL_URL = u'https://{}/models'.format(SKETCHFAB_DOMAIN)
+# Setting the encoding for zip to enable getting the good paths for files
+# to put in the archive
+ENCODING = 'latin-1' if os.name is 'nt' else 'utf8'
+to_utf8 = lambda x: x.encode('utf8')
 
 
 class SkfbUploader(object):
@@ -36,7 +41,7 @@ class SkfbUploader(object):
                                          data=params,
                                          verify=False)
             if response.status_code == 201:
-                return SKETCHFAB_MODEL_URL + '/' + json.loads(response.content)['uid']
+                return to_utf8(SKETCHFAB_MODEL_URL) + '/' + json.loads(response.content)['uid']
             else:
                 return json.loads(response.content)['detail']
 
@@ -57,7 +62,7 @@ class SkfbUploader(object):
             'tags': u'KSP ' + options.get('tags', '').decode('utf8'),
             'source': 'ksp-exporter'
         }
-        return SkfbUploader.post(SKETCHFAB_API_URL, archive, **params)
+        return SkfbUploader.post(to_utf8(SKETCHFAB_API_URL), archive, **params)
 
     @staticmethod
     def qt_upload(archive, **options):
@@ -86,7 +91,7 @@ class SkfbUploader(object):
         data.setParent(multiPart)
         multiPart.append(modelPart)
 
-        url = QtCore.QUrl(SKETCHFAB_API_URL)
+        url = QtCore.QUrl(to_utf8(SKETCHFAB_API_URL))
         request = QtNetwork.QNetworkRequest(url)
         manager = QtNetwork.QNetworkAccessManager()
         reply = manager.post(request, multiPart)
@@ -106,7 +111,10 @@ class KSP2Skfb(object):
             from PyQt4 import QtCore
             self.emitter = QtCore.QObject()
         self.sign = None
-        self.set_game_dir(game_dir or 'C:\\Kerbal Space Program')
+        self.set_game_dir(game_dir or u'C:\\Kerbal Space Program')
+        # Debug data
+        self.current_part = u''
+        self.current_file = u''
 
     def set_game_dir(self, game_dir_path):
         self.game_dir = game_dir_path
@@ -143,8 +151,10 @@ class KSP2Skfb(object):
                     if os.path.splitext(f)[-1] == '.mu':
                         mesh_path = os.path.join(cfg_dir, f)
                         break
+
         if mesh_path:
-            print("A substitution mu file '{}' was found.".format(os.path.basename(mesh_path)))
+            print("A substitution mu file '{}' was found.".format(os.path.basename(mesh_path)
+                  .encode('utf8', errors='replace')))
 
         return mesh_path
 
@@ -157,6 +167,7 @@ class KSP2Skfb(object):
             cfg_dir = None
             # Add the cfg path to the part assets
             part_assets.append(cfg_filepath)
+            self.current_file = cfg_filepath
             for line in cfg_file:
                 token = line.split('=')[0].strip()
                 if token == 'name':
@@ -181,22 +192,38 @@ class KSP2Skfb(object):
                         return
                     # Add the mesh to the part assets
                     part_assets.append(mesh_path)
-                if part_name and not part_name in self.parts:
+                if part_name and part_name not in self.parts:
                     self.parts[part_name] = part_assets
 
     def list(self):
-        print('\n'.join(map(lambda name: '{}. {}'.format(name[0], name[1]),
+        print('\n'.join(map(lambda (index, name): '{}. {}'.format(index, to_utf8(name)),
                             enumerate(map(os.path.basename,
                                       map(lambda x: os.path.splitext(x)[0],
                                           self.craft_files))))))
 
     def get_craft_list(self):
-        return map(lambda name: '{}. {}'.format(name[0], name[1]),
+        return map(lambda (index, name): '{}. {}'.format(index, to_utf8(name)),
                    enumerate(map(os.path.basename,
                              map(lambda x: os.path.splitext(x)[0],
                                  self.craft_files))))
 
+    def close_log(self):
+        if self.logfile:
+            self.logfile.close()
+            sys.stdout = self.stdout_backup
+            print('file closed')
+
     def upload(self, craft_name, **options):
+        # Create log file and redirect outputs into it
+        if options.get('export_log', True):
+            self.logpath = os.path.join(tempfile.gettempdir(), u'ksp2sketchfab_export.log')
+            self.logfile = open(self.logpath, 'a+')
+            self.temp_files.add(self.logpath)
+
+            # redirect stdout in log file
+            self.stdout_backup = sys.stdout
+            sys.stdout = self.logfile
+
         archive = self.make_craft_archive(craft_name)
         if options.get('use_requests', False):
             options.pop('use_requests', None)
@@ -205,10 +232,16 @@ class KSP2Skfb(object):
             return SkfbUploader.qt_upload(archive, **options)
 
     def make_craft_archive(self, craft_name):
-        self.list_parts()
-        craft_path = self.get_craft_path(craft_name)
-        craft_assets = self.list_craft_assets(craft_path)
-        craft_name = os.path.splitext(os.path.basename(craft_path))[0]
+        try:
+            self.list_parts()
+            craft_path = self.get_craft_path(craft_name)
+            craft_assets = self.list_craft_assets(craft_path)
+            craft_name = os.path.splitext(os.path.basename(craft_path))[0]
+        except:
+            raise
+        finally:
+            self.close_log()
+
         return self.build_zip(craft_name, craft_path, craft_assets)
 
     def get_craft_path(self, name):
@@ -225,7 +258,6 @@ class KSP2Skfb(object):
 
     def get_existing_texture_file(self, filepath):
         exts = ['.dds', '.mbm', '.png', '.tga']
-        base_path = os.path.splitext(filepath)[0]
         for ext in exts:
             if os.path.exists(os.path.splitext(filepath)[0] + ext):
                 return os.path.splitext(filepath)[0] + ext
@@ -240,6 +272,7 @@ class KSP2Skfb(object):
             existing_texture = self.get_existing_texture_file(os.path.join(path, mutextures[idx].name))
             if existing_texture:
                 # DDS and MBM need to be converted into PNG
+                self.current_file = existing_texture
                 if os.path.splitext(existing_texture)[-1] in ['.dds', '.mbm']:
                     # Get the converted texture
                     source_image = self.convert(existing_texture, idx in convert_indexes)
@@ -250,7 +283,8 @@ class KSP2Skfb(object):
                     # and the path to set in the .zip so that it is in the same directory that the model
                     if self.uses_qt:
                         from PyQt4 import QtCore
-                        self.emitter.emit(QtCore.SIGNAL('converting(QString)'), "Converting : {}".format(os.path.basename(archive_path)))
+                        self.emitter.emit(QtCore.SIGNAL('converting(QString)'),
+                                          "Converting : {}".format(os.path.basename(archive_path)))
                     textures.add((source_image, archive_path))
                 else:
                     textures.add(existing_texture)
@@ -276,13 +310,13 @@ class KSP2Skfb(object):
 
     def get_asset_files(self, part_assets):
         ''' Get the assets files (cfg + mu + textures)'''
-        c = Converter()
         files = set()
         try:
             for f in part_assets:
                 files.add(f)
                 if os.path.splitext(f)[-1] == '.mu':
                     # Read the .mu file to get textures
+                    self.current_file = f
                     files.update(self.get_mu_textures(f))
 
             return list(files)
@@ -312,32 +346,36 @@ class KSP2Skfb(object):
                 if asset not in self.parts:
                     print("Warning: part '{}' not found".format(asset))
                 else:
+                    self.current_part = unicode(asset, 'utf8')
                     if self.uses_qt:
                         from PyQt4 import QtCore
-                        self.emitter.emit(QtCore.SIGNAL('building(QString, int, int)'), "Building", list(assets_set).index(asset), len(assets_set))
+                        self.emitter.emit(QtCore.SIGNAL('building(QString, int, int)'), "Building",
+                                          list(assets_set).index(asset), len(assets_set))
                     print('Getting files for {}'.format(asset))
                     craft_assets.update(self.get_asset_files(self.parts[asset]))
+
         return craft_assets
 
     def build_zip(self, craft_name, craft_file, craft_assets):
         ''' Build a zip with craft_assets names'''
         output = tempfile.gettempdir()
-        archive = os.path.join(output, craft_name + '.zip')
+        archive = os.path.join(output, craft_name.encode(ENCODING) + '.zip')
         self.temp_files.add(archive)
         zip = zipfile.ZipFile(archive, 'w')
-        zip.write(craft_file, os.path.basename(craft_file))
+        zip.write(craft_file.encode(ENCODING), os.path.basename(craft_file.encode(ENCODING)))
+
+        zip.write(self.logpath, os.path.basename(self.logpath))
         # When textures are converted, PNGs are put in the archive from the temp path but
         # with the MBM (game) path to keep their relative path with the model, inside the archive
         print('Building the .zip')
         for f in craft_assets:
             if isinstance(f, tuple):
-                zip.write(f[0], f[1])
+                zip.write(f[0].encode(ENCODING), f[1].encode(ENCODING))
             else:
-                zip.write(f)
+                zip.write(f.encode(ENCODING))
         zip.close()
 
         return archive
-
 
     def clear_tmp_files(self):
         ''' Clear temp files '''
@@ -347,7 +385,7 @@ class KSP2Skfb(object):
                 if os.path.isdir(d):
                     for f in os.listdir(d):
                         try:
-                            os.remove(os.path.join(d,f))
+                            os.remove(os.path.join(d, f))
                         except:
                             pass
                     try:
@@ -364,7 +402,7 @@ class KSP2Skfb(object):
 
 def parse_options(args=None):
     parser = argparse.ArgumentParser(description="List and select craft to upload to Sketchfab")
-    parser.add_argument("-g", "--game-dir", dest="game_dir",
+    parser.add_argument("-g", "--game-dir", dest="game_dir", type=unicode,
                         help="The main KSP directory (<C:\Kerbal Space Program> by default)", nargs='?')
     parser.add_argument("-u", "--upload", dest="upload", nargs='?',
                         help="Craft to upload", default=None)

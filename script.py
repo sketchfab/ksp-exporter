@@ -19,10 +19,12 @@
 
 # <pep8 compliant>
 
+
 class ScriptError(Exception):
     def __init__(self, fname, line, message):
         Exception.__init__(self, "%s:%d: %s" % (fname, line, message))
         self.line = line
+
 
 class Script:
     def __init__(self, filename, text, single="{}()':"):
@@ -32,8 +34,10 @@ class Script:
         self.pos = 0
         self.line = 1
         self.unget = False
+
     def error(self, msg):
         raise ScriptError(self.filename, self.line, msg)
+
     def tokenAvailable(self, crossline=False):
         if self.unget:
             return True
@@ -61,6 +65,7 @@ class Script:
                 continue
             return True
         return False
+
     def getLine(self):
         start = self.pos
         end = start
@@ -79,6 +84,7 @@ class Script:
         else:
             self.token = self.text[start:end]
         return self.pos < len(self.text)
+
     def getToken(self, crossline=False):
         if self.unget:
             self.unget = False
@@ -112,5 +118,6 @@ class Script:
                     self.pos += 1
             self.token = self.text[start:self.pos]
         return self.token
+
     def ungetToken(self):
         self.unget = True

@@ -2,22 +2,24 @@ from PyQt4 import QtGui, QtCore
 from kspmanager import KSP2Skfb, SKETCHFAB_MODEL_URL
 import os
 import json
-import sys
+import traceback
+import StringIO
 
 
+# Note: QString are unicode, see http://pyqt.sourceforge.net/Docs/PyQt4/qstring.html#details
 class Window(QtGui.QWidget):
     def __init__(self, parent=None):
         super(Window, self).__init__(parent)
         self.setWindowTitle('Ksp2Sketchfab')
         self.settings = QtCore.QSettings("Sketchfab", "Ksp2Sketchfab")
-        self.game_dir = 'C:\\Kerbal Space Program'
+        self.game_dir = u'C:\\Kerbal Space Program'
         self.craft_list = []
         self.manager = None
 
         self.user_data = dict()
         self.get_user_data()
         if 'path' in self.user_data:
-            self.game_dir = self.user_data['path']
+            self.game_dir = self.user_data['path']  # value is always unicode
 
         # Setting the layouts
         self.main_layout = QtGui.QVBoxLayout()
@@ -38,7 +40,7 @@ class Window(QtGui.QWidget):
         self.craft_list_ql = QtGui.QListWidget()
 
         # SKFB UI
-        ## API Token
+        # API Token
         api_token_label = QtGui.QLabel('Sketchfab API token*:')
         api_token_label.setStyleSheet("color: black; font-weight : bold;")
         self.api_token_tb = QtGui.QLineEdit()
@@ -54,24 +56,24 @@ class Window(QtGui.QWidget):
         api_token_info_label.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
         api_token_info_label.setOpenExternalLinks(True)
 
-        ## Model name
+        # Model name
         name_label = QtGui.QLabel('Model Name')
         self.name_tb = QtGui.QLineEdit()
         self.name_tb.setMaxLength(48)
         self.name_tb.setPlaceholderText('Enter model name [up to 48 characters]')
 
-        ## Description
+        # Description
         self.description_label = QtGui.QLabel('Description (0/1024 characters)')
         self.description_tb = QtGui.QTextEdit()
         self.description_tb.textChanged.connect(self.description_input_limit)
 
-        ## Tags
+        # Tags
         tags_label = QtGui.QLabel('Tags (separated by spaces)')
         self.tags_tb = QtGui.QLineEdit()
         self.tags_tb.setPlaceholderText('KerbalSpaceProgram Rocket Craft')
         ksp_tag_label = QtGui.QLabel('KSP')
 
-        ## Upload btn
+        # Upload btn
         self.upload_btn = QtGui.QPushButton("Publish to Sketchfab", self)
         self.upload_btn.setStyleSheet("background-color: rgb(28, 170, 217); color: white;")
         self.upload_btn.clicked.connect(self.start_upload)
@@ -113,8 +115,10 @@ class Window(QtGui.QWidget):
         self.manager = KSP2Skfb(self.game_dir, True)
         self.update_game_ui(self.game_dir)
         self.enable_skfb_ui(False)
-        QtCore.QObject.connect(self.manager.emitter, QtCore.SIGNAL('building(QString, int, int)'), self.update_upload_btn)
-        QtCore.QObject.connect(self.manager.emitter, QtCore.SIGNAL('converting(QString)'), self.update_upload_lb)
+        QtCore.QObject.connect(self.manager.emitter, QtCore.SIGNAL('building(QString, int, int)'),
+                               self.update_upload_btn)
+        QtCore.QObject.connect(self.manager.emitter, QtCore.SIGNAL('converting(QString)'),
+                               self.update_upload_lb)
 
         # If bad path at launch, pop up the filedialog to locate it
         if not os.path.exists(self.game_dir):
@@ -155,7 +159,7 @@ class Window(QtGui.QWidget):
             self.upload_btn.setEnabled(True)
             self.upload_btn.setText('Building zip archive...')
             self.upload_btn.setStyleSheet("background-color: rgb(170, 170, 170); color: white;")
-        elif state =='publish':
+        elif state == 'publish':
             self.upload_btn.setEnabled(True)
             self.upload_btn.setText('Publish to Sketchfab')
             self.upload_btn.setStyleSheet("background-color: rgb(28, 170, 217); color: white;")
@@ -165,7 +169,8 @@ class Window(QtGui.QWidget):
     def description_input_limit(self):
         if len(self.description_tb.toPlainText()) > 1024:
             self.description_tb.setText(self.description_tb.toPlainText())
-        self.description_label.setText('Description ({}/1024 characters)'.format(len(self.description_tb.toPlainText())))
+        self.description_label.setText('Description ({}/1024 characters)'
+                                       .format(len(self.description_tb.toPlainText())))
 
     def strip_craft_name(self, index):
         return self.craft_list[index].split('.')[1].strip()
@@ -204,10 +209,19 @@ class Window(QtGui.QWidget):
                 name=to_utf8(self.name_tb.text()),
                 description=to_utf8(self.description_tb.toPlainText()),
                 tags='KSP ' + to_utf8(self.tags_tb.text()),
-                token=to_utf8(self.api_token_tb.text()))
+                token=to_utf8(self.api_token_tb.text()),
+                export_log=True)
         except Exception as e:
-            # QtGui.QMessageBox.critical(self, "Error", '{}'.format(e))
-            QtGui.QMessageBox.critical(self, "Unhandled error", '{}: {}'.format(type(e).__name__, e))
+            io = StringIO.StringIO()
+            traceback.print_exc(file=io)
+            current_file = self.manager.current_file
+            current_part = self.manager.current_part
+            # The traceback paths are fixed by the compilation and there is no non-unicode
+            # characters, so implicit conversion to unicode in format(io.getvalue()) is ok here
+            # current_file and current_part are unicode
+            debug_message = u'{} \n{}'.format(io.getvalue(), current_file)
+            QtGui.QMessageBox.critical(self, u'Unhandled error [{}]'.format(current_part),
+                                       u'{}: {}'.format(type(e).__name__, debug_message))
             self.set_upload_btn_state('publish')
             return
 
@@ -274,7 +288,7 @@ class Window(QtGui.QWidget):
                 print(err.errorString())
             self.reply.ignoreSslErrors()
 
-        ## Connections
+        # Connections
         self.reply.finished.connect(upload_finished)
         self.reply.error.connect(upload_error)
         self.reply.uploadProgress.connect(upload_progress)
@@ -298,14 +312,20 @@ class Window(QtGui.QWidget):
 
     def update_game_ui(self, game_dir):
         ''' Check if the game dir exists and if it contains crafts'''
+
+        # here game_dir is a Qstring, and manager expects unicode
+        if isinstance(game_dir, QtCore.QString):
+            game_dir = unicode(game_dir)
+
         self.game_dir = game_dir
         self.game_path_tb.setText(self.game_dir)
-        if os.path.exists(game_dir):
-            self.manager.set_game_dir(str(game_dir))
+
+        if os.path.exists(self.game_dir):
+            self.manager.set_game_dir(self.game_dir)
             if self.set_craft_list():
                 self.game_path_info_label.hide()
                 self.upload_btn.setEnabled(True)
-                self.user_data['path'] = '{}'.format(self.game_dir)
+                self.user_data['path'] = self.game_dir
                 self.dump_user_data()
             else:
                 self.craft_list_ql.setEnabled(False)
