@@ -12,6 +12,7 @@ SKETCHFAB_API_URL = 'https://api.{}/v2/models'.format(SKETCHFAB_DOMAIN)
 SKETCHFAB_MODEL_URL = 'https://{}/models'.format(SKETCHFAB_DOMAIN)
 
 
+
 class SkfbUploader(object):
     @staticmethod
     def parse_options():
@@ -198,6 +199,7 @@ class KSP2Skfb(object):
 
     def upload(self, craft_name, **options):
         archive = self.make_craft_archive(craft_name)
+
         if options.get('use_requests', False):
             options.pop('use_requests', None)
             return SkfbUploader.upload(archive, **options)
@@ -260,16 +262,21 @@ class KSP2Skfb(object):
     def get_mu_textures(self, mu_file):
         mu = Mu()
         mu_data = mu.read(mu_file)
+
+        if not mu_data:
+            return
+
         path = os.path.split(mu_file)[0]
 
         # Check for textures that need to be converted to normal map
         normalmaps_index = []
         for mat in mu_data.materials:
             try:
-                mat.bumpMap
-                normalmaps_index.append(mat.bumpMap.index)
-            except AttributeError:
+                mat.textureProperties['_BumpMap']
+                normalmaps_index.append(mat.textureProperties['_BumpMap'].index)
+            except KeyError:
                 pass
+
         converted_textures = []
         converted_textures = self.convert_textures(mu_data.textures, path, normalmaps_index)
         return converted_textures
