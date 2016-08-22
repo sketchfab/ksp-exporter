@@ -95,11 +95,30 @@ class Window(QWidget):
         ksp_tag_label = QLabel('KSP')
 
         ## Upload btn
-        self.upload_btn = QPushButton('Publish to Sketchfab', self)
+        self.upload_btn = QPushButton('Upload', self)
         self.upload_btn.setStyleSheet('background-color: rgb(28, 170, 217); color: white;')
         self.upload_btn.clicked.connect(self.start_upload)
         self.upload_btn.setEnabled(False)
         self.status_info_label = QLabel('')
+
+        ## Private/Draft
+        self.private_cb = QCheckBox("")
+        self.private_cb.stateChanged.connect(self.setPasswordEnable)
+        private_lb = QLabel("Private (<a href=\"https://help.sketchfab.com/hc/en-us/articles/202484576-Model-Security#private\">PRO</a> only)")
+        private_lb.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        private_lb.setOpenExternalLinks(True)
+
+        password_lb = QLabel("Password")
+        self.password_tb = QLineEdit()
+        self.password_tb.setEchoMode(QLineEdit.Password)
+        self.password_tb.setEnabled(False)
+
+        self.autopublish_cb = QCheckBox("Publish immediately")
+        self.autopublish_cb.setCheckState(Qt.Checked)
+        self.autopublish_cb.setTristate(False)
+        autopublish_lb = QLabel("(skip <a href=\"https://help.sketchfab.com/hc/en-us/articles/202508836-Uploading#draft\">Draft mode</a>)")
+        autopublish_lb.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        autopublish_lb.setOpenExternalLinks(True)
 
         # Set layouts
         self.main_layout.addWidget(game_path_label)
@@ -127,8 +146,19 @@ class Window(QWidget):
         tag_h_layout.addWidget(self.tags_tb)
         self.main_layout.addLayout(tag_h_layout)
 
+        private_h_layout = QHBoxLayout()
+        private_h_layout.addWidget(self.private_cb)
+        private_h_layout.addWidget(private_lb)
+        private_h_layout.addWidget(password_lb)
+        private_h_layout.addWidget(self.password_tb)
+        self.main_layout.addLayout(private_h_layout)
+        publish_h_layout = QHBoxLayout()
+        publish_h_layout.addWidget(self.autopublish_cb)
+        publish_h_layout.addWidget(autopublish_lb)
+        publish_h_layout.addWidget(self.upload_btn)
+        self.main_layout.addLayout(publish_h_layout)
+
         self.craft_list_ql.currentRowChanged.connect(self.updateList)
-        self.main_layout.addWidget(self.upload_btn)
         self.main_layout.addWidget(self.status_info_label)
         self.setLayout(self.main_layout)
 
@@ -198,7 +228,7 @@ class Window(QWidget):
     def updateList(self, index):
         ''' Update Gui when list element is changed'''
         self.upload_btn.setEnabled(True)
-        self.upload_btn.setText('Publish to Sketchfab')
+        self.upload_btn.setText('Upload')
         self.status_info_label.setText('')
         self.enable_skfb_ui(True)
         self.name_tb.setText('{}'.format(self.strip_craft_name(index)))
@@ -227,6 +257,9 @@ class Window(QWidget):
                 name=self.name_tb.text(),
                 description=self.description_tb.toPlainText(),
                 tags='KSP ' + self.tags_tb.text(),
+                private=int(self.private_cb.checkState() == Qt.Checked),
+                password=self.password_tb.text(),
+                draft=int(self.autopublish_cb.checkState() == Qt.Checked),
                 token=self.api_token_tb.text())
         except Exception as e:
             QMessageBox.critical(self, 'Unhandled error', '{}: {}'.format(type(e).__name__, e))
@@ -339,6 +372,9 @@ class Window(QWidget):
             self.game_path_info_label.show()
             self.game_path_info_label.setStyleSheet('color: rgb(150, 0, 0);')
             self.craft_list_ql.setEnabled(False)
+
+    def setPasswordEnable(self, is_private):
+        self.password_tb.setEnabled(is_private)
 
     def search_game_directory(self):
         ''' Open a filedialog to locate game directory'''

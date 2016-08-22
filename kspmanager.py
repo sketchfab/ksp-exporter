@@ -24,6 +24,12 @@ class SkfbUploader(object):
                             help='Space separated list of tags')
         parser.add_argument('--token',
                             help='[Mandatory] User token')
+        parser.add_argument('--private', default=False, action="store_true",
+                            help='publish model has private')
+        parser.add_argument('--draft', default=False, action="store_true",
+                            help='set model as draft (not publicly visible)')
+        parser.add_argument('--password', default='', nargs='?',
+                            help='password for private model')
         return parser.parse_known_args()[0]
 
     @staticmethod
@@ -47,16 +53,22 @@ class SkfbUploader(object):
     def upload(archive, **options):
         if not options:
             options = vars(SkfbUploader.parse_options())
+
         if not options.get('token'):
             print('Error : Please set your Sketchfab API token')
             return 'Cancelled : missing Sketchfab API token'
+
         params = {
             'token': options.get('token'),
             'name': options.get('name', 'Craft'),
             'description': options.get('description', ''),
             'tags': 'KSP ' + options.get('tags', ''),
+            'isPublished': not(options.get('draft', False)),
+            'private': options.get('private', False),
+            'password': options.get('password', ''),
             'source': 'ksp-exporter'
         }
+
         return SkfbUploader.post(SKETCHFAB_API_URL, archive, **params)
 
     @staticmethod
@@ -74,6 +86,12 @@ class SkfbUploader(object):
         multiPart.append(part_parameter("description", options.get('description', '').encode('utf8')))
         multiPart.append(part_parameter("tags", options.get('tags', 'KSP').encode('utf8')))
         multiPart.append(part_parameter("token", options.get('token', '').encode('utf8')))
+        multiPart.append(part_parameter("isPublished", str(options.get('draft', False)).encode('utf8')))
+        multiPart.append(part_parameter("private", str(options.get('private', False)).encode('utf8')))
+
+        if(options.get('private', False)):
+            multiPart.append(part_parameter("password", options.get('password', "").encode('utf8')))
+
         multiPart.append(part_parameter("source", b"ksp-exporter"))
 
         modelPart = QtNetwork.QHttpPart()
