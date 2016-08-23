@@ -1,6 +1,7 @@
 #KSP exporter to Sketchfab#
 
 This exporter allows you to publish your craft from Kerbal Space Program to Sketchfab.
+Uses Python3 and PyQt5
 
 ## Execute in command line ##
 
@@ -24,6 +25,12 @@ The exporter can be launched in command line through kspmanager.py.
 
 `--tags`         add tags to the model
 
+`--draft`         set model as draft (don't publish immediately)
+
+`--private`         set model as private (PRO accounts only)
+
+`--password`        protect a private model with a password (PRO accounts only)
+
 ### List craft files that are available in the game
 `python kspmanager.py [-g GAME_DIRECTORY] -l`
 
@@ -34,3 +41,9 @@ python kspmanager.py -u 2 --token 1234567890ABCDEFGHIJKLMNOPQRSTUV
     --description "This is my first craft"
     --tags "Lander kerbalspaceprogram"
 ```
+
+## Build EXE with pyinstaller ##
+
+Common qt binaries directory: `C:/Qt/5.7/msvc2015/bin`
+
+`pyinstaller -F -w --paths 'C:/Qt/5.7/msvc2015/bin' -i 'resources/ksp2skfb_256.ico' ksp2sketchfab.py`
