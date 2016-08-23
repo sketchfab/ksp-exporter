@@ -42,9 +42,11 @@ class Converter(object):
                 #outp[pixel * 4] = dx
                 #outp[pixel ] = dy
                 #outp[pixel + 2] = dz
-                rr[x, y] = dx*bits + 128
-                gg[x, y] = dy*bits + 128
-                bb[x, y] = dz*bits + 128
+                rr[x, y] = 3
+                rr[x, y] = int(dx * bits + 128)
+                gg[x, y] = int(dy * bits + 128)
+                bb[x, y] = int(dz * bits + 128)
+
         return([r, g, b])
 
 
@@ -77,7 +79,7 @@ class Converter(object):
         img_format = 'RGBA' if len(da.format) == 4 else 'RGB'
 
         imagedata=da.get_data(img_format, len(da.format) * da.width)
-        img = Image.fromstring(img_format, (da.width, da.height), imagedata)
+        img = Image.frombytes(img_format, (da.width, da.height), imagedata)
         img = img.transpose(1)
         if convert_tonormal:
             img = self.readHeight2Bump(img)

@@ -24,6 +24,12 @@ class SkfbUploader(object):
                             help='Space separated list of tags')
         parser.add_argument('--token',
                             help='[Mandatory] User token')
+        parser.add_argument('--private', default=False, action="store_true",
+                            help='publish model has private')
+        parser.add_argument('--draft', default=False, action="store_true",
+                            help='set model as draft (not publicly visible)')
+        parser.add_argument('--password', default='', nargs='?',
+                            help='password for private model')
         return parser.parse_known_args()[0]
 
     @staticmethod
@@ -36,9 +42,9 @@ class SkfbUploader(object):
                                          data=params,
                                          verify=False)
             if response.status_code == 201:
-                return SKETCHFAB_MODEL_URL + '/' + json.loads(response.content)['uid']
+                return SKETCHFAB_MODEL_URL + '/' + json.loads(response.content.decode('utf8'))['uid']
             else:
-                return json.loads(response.content)['detail']
+                return json.loads(response.content.decode('utf8'))['detail']
 
         except Exception as e:
             return str(e)
@@ -47,21 +53,27 @@ class SkfbUploader(object):
     def upload(archive, **options):
         if not options:
             options = vars(SkfbUploader.parse_options())
+
         if not options.get('token'):
             print('Error : Please set your Sketchfab API token')
             return 'Cancelled : missing Sketchfab API token'
+
         params = {
-            'token': options.get('token').decode('utf8'),
-            'name': options.get('name', 'Craft').decode('utf8'),
-            'description': options.get('description', '').decode('utf8'),
-            'tags': u'KSP ' + options.get('tags', '').decode('utf8'),
+            'token': options.get('token'),
+            'name': options.get('name', 'Craft'),
+            'description': options.get('description', ''),
+            'tags': 'KSP ' + options.get('tags', ''),
+            'isPublished': not(options.get('draft', False)),
+            'private': options.get('private', False),
+            'password': options.get('password', ''),
             'source': 'ksp-exporter'
         }
+
         return SkfbUploader.post(SKETCHFAB_API_URL, archive, **params)
 
     @staticmethod
     def qt_upload(archive, **options):
-        from PyQt4 import QtNetwork, QtCore
+        from PyQt5 import QtNetwork, QtCore
 
         def part_parameter(key, value):
             part = QtNetwork.QHttpPart()
@@ -70,16 +82,23 @@ class SkfbUploader(object):
             return part
 
         multiPart = QtNetwork.QHttpMultiPart(QtNetwork.QHttpMultiPart.FormDataType)
-        multiPart.append(part_parameter("name", options.get('name', '').decode('utf8')))
-        multiPart.append(part_parameter("description", options.get('description', '').decode('utf8')))
-        multiPart.append(part_parameter("tags", options.get('tags', 'KSP').decode('utf8')))
-        multiPart.append(part_parameter("token", options.get('token', '').decode('utf8')))
-        multiPart.append(part_parameter("source", "ksp-exporter"))
+        multiPart.append(part_parameter("name", options.get('name', '').encode('utf8')))
+        multiPart.append(part_parameter("description", options.get('description', '').encode('utf8')))
+        multiPart.append(part_parameter("tags", options.get('tags', 'KSP').encode('utf8')))
+        multiPart.append(part_parameter("token", options.get('token', '').encode('utf8')))
+        multiPart.append(part_parameter("isPublished", str(options.get('draft', False)).encode('utf8')))
+        multiPart.append(part_parameter("private", str(options.get('private', False)).encode('utf8')))
+
+        if(options.get('private', False)):
+            multiPart.append(part_parameter("password", options.get('password', "").encode('utf8')))
+
+        multiPart.append(part_parameter("source", b"ksp-exporter"))
 
         modelPart = QtNetwork.QHttpPart()
         modelPart.setHeader(QtNetwork.QNetworkRequest.ContentTypeHeader, "application/octet-stream")
         modelPart.setHeader(QtNetwork.QNetworkRequest.ContentDispositionHeader,
                             "form-data; name=\"modelFile\"; filename=\"%s\"" % (archive))
+
         data = QtCore.QFile(archive)
         data.open(QtCore.QIODevice.ReadOnly)
         modelPart.setBodyDevice(data)
@@ -96,15 +115,17 @@ class SkfbUploader(object):
 
 
 class KSP2Skfb(object):
-    def __init__(self, game_dir=None, uses_qt=False):
+    def __init__(self, game_dir=None, uses_qt=False, emitter=None):
         self.craft_files = []
         self.craft_parts = set()
         self.parts = dict()
         self.temp_files = set()
         self.uses_qt = uses_qt
+
+        # qt features
         if self.uses_qt:
-            from PyQt4 import QtCore
-            self.emitter = QtCore.QObject()
+            self.emitter = emitter;
+
         self.sign = None
         self.set_game_dir(game_dir or 'C:\\Kerbal Space Program')
 
@@ -123,8 +144,8 @@ class KSP2Skfb(object):
     def list_parts(self):
         for root, dirs, files in os.walk(self.game_dir):
             if self.uses_qt:
-                from PyQt4 import QtCore
-                self.emitter.emit(QtCore.SIGNAL('building(QString, int, int)'), "Scanning game directory...", -1, -1)
+                from PyQt5 import QtCore
+                self.emitter.emit_build("Scanning...", -1, -1)
             for filename in files:
                 if os.path.splitext(filename)[-1] == '.cfg':
                     self.get_part_name_from_cfg(os.path.join(root, filename))
@@ -191,13 +212,14 @@ class KSP2Skfb(object):
                                           self.craft_files))))))
 
     def get_craft_list(self):
-        return map(lambda name: '{}. {}'.format(name[0], name[1]),
+        return list(map(lambda name: '{}. {}'.format(name[0], name[1]),
                    enumerate(map(os.path.basename,
                              map(lambda x: os.path.splitext(x)[0],
-                                 self.craft_files))))
+                                 self.craft_files)))))
 
     def upload(self, craft_name, **options):
         archive = self.make_craft_archive(craft_name)
+
         if options.get('use_requests', False):
             options.pop('use_requests', None)
             return SkfbUploader.upload(archive, **options)
@@ -249,8 +271,8 @@ class KSP2Skfb(object):
                     # We create a tuple to store both the real(temp) path of the converted texture
                     # and the path to set in the .zip so that it is in the same directory that the model
                     if self.uses_qt:
-                        from PyQt4 import QtCore
-                        self.emitter.emit(QtCore.SIGNAL('converting(QString)'), "Converting : {}".format(os.path.basename(archive_path)))
+                        from PyQt5 import QtCore
+                        self.emitter.emit_convert("Converting : {}".format(os.path.basename(archive_path)))
                     textures.add((source_image, archive_path))
                 else:
                     textures.add(existing_texture)
@@ -260,16 +282,21 @@ class KSP2Skfb(object):
     def get_mu_textures(self, mu_file):
         mu = Mu()
         mu_data = mu.read(mu_file)
+
+        if not mu_data:
+            return
+
         path = os.path.split(mu_file)[0]
 
         # Check for textures that need to be converted to normal map
         normalmaps_index = []
         for mat in mu_data.materials:
             try:
-                mat.bumpMap
-                normalmaps_index.append(mat.bumpMap.index)
-            except AttributeError:
+                mat.textureProperties['_BumpMap']
+                normalmaps_index.append(mat.textureProperties['_BumpMap'].index)
+            except KeyError:
                 pass
+
         converted_textures = []
         converted_textures = self.convert_textures(mu_data.textures, path, normalmaps_index)
         return converted_textures
@@ -313,8 +340,8 @@ class KSP2Skfb(object):
                     print("Warning: part '{}' not found".format(asset))
                 else:
                     if self.uses_qt:
-                        from PyQt4 import QtCore
-                        self.emitter.emit(QtCore.SIGNAL('building(QString, int, int)'), "Building", list(assets_set).index(asset), len(assets_set))
+                        from PyQt5 import QtCore
+                        self.emitter.emit_build('Building', list(assets_set).index(asset), len(assets_set))
                     print('Getting files for {}'.format(asset))
                     craft_assets.update(self.get_asset_files(self.parts[asset]))
         return craft_assets

@@ -1,17 +1,16 @@
 import sys
-
+import gui
+from PyQt5.QtWidgets import *
 
 def main():
-
-    from PyQt4 import QtGui
-    import gui
-
     try:
-        app = QtGui.QApplication(sys.argv)
+        app = QApplication(sys.argv)
         w = gui.Window()
         w.show()
-    except:
+    except Exception as e:
+        print(e)
         print("Failed to initialize QtGui interface")
+        return
 
     sys.exit(app.exec_())
 
